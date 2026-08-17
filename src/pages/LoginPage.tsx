@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { homeFor } from '../auth/home'
@@ -23,25 +23,44 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<'otp' | 'password'>('otp')
   const [phone, setPhone] = useState('9999999999')
-  const [code, setCode] = useState('123456')
+  const [code, setCode] = useState('')
   const [password, setPassword] = useState('password')
+  const [devOtp, setDevOtp] = useState<string | null>(null)
+  const [otpReady, setOtpReady] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setOtpReady(false)
+    setDevOtp(null)
+    setCode('')
+  }, [phone, mode])
 
   if (loading) return <Loader label={t('common.loading')} />
   if (user) return <Navigate to={homeFor(user.roles)} replace />
 
-  async function enter(nextPhone = phone) {
+  async function sendOtp(nextPhone = phone) {
     setError('')
     setBusy(true)
     try {
-      if (mode === 'password') {
-        const signed = await loginWithPassword(nextPhone, password)
-        navigate(homeFor(signed.roles))
-        return
+      const otp = await requestOtp(nextPhone, 'login')
+      if (otp) {
+        setDevOtp(otp)
+        setCode(otp)
       }
-      await requestOtp(nextPhone, 'login')
-      const signed = await login(nextPhone, code || '123456')
+      setOtpReady(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('login.fail'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyOtp(nextPhone = phone) {
+    setError('')
+    setBusy(true)
+    try {
+      const signed = await login(nextPhone, code)
       navigate(homeFor(signed.roles))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('login.fail'))
@@ -50,15 +69,68 @@ export function LoginPage() {
     }
   }
 
+  async function quickEnter(nextPhone: string) {
+    setPhone(nextPhone)
+    setError('')
+    setBusy(true)
+    try {
+      const otp = await requestOtp(nextPhone, 'login')
+      const verifyCode = otp || code
+      if (otp) {
+        setDevOtp(otp)
+        setCode(otp)
+      }
+      setOtpReady(true)
+      const signed = await login(nextPhone, verifyCode)
+      navigate(homeFor(signed.roles))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('login.fail'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submit() {
+    if (mode === 'password') {
+      setError('')
+      setBusy(true)
+      try {
+        const signed = await loginWithPassword(phone, password)
+        navigate(homeFor(signed.roles))
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t('login.fail'))
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
+    if (!otpReady) {
+      await sendOtp()
+      return
+    }
+
+    await verifyOtp()
+  }
+
+  const otpButtonLabel = busy
+    ? (otpReady ? t('login.signingIn') : t('login.sendingOtp'))
+    : (otpReady ? t('login.continue') : t('login.sendOtp'))
+
   return (
     <AuthShell>
       <h1>{t('login.title')}</h1>
-      <p style={{ margin: '0 0 18px' }}>{mode === 'otp' ? t('login.hint', { otp: '123456' }) : t('login.passwordHint')}</p>
+      <p style={{ margin: '0 0 18px' }}>{mode === 'otp' ? t('login.hint') : t('login.passwordHint')}</p>
       <div className="tabs">
         <button className={mode === 'otp' ? 'on' : ''} onClick={() => setMode('otp')}>{t('login.tabOtp')}</button>
         <button className={mode === 'password' ? 'on' : ''} onClick={() => setMode('password')}>{t('login.tabPassword')}</button>
       </div>
       <div className="card" style={{ marginBottom: 22 }}>
+        {devOtp && mode === 'otp' && (
+          <div className="alert ok" style={{ marginBottom: 12 }}>
+            {t('login.devOtp', { otp: devOtp })}
+          </div>
+        )}
         <div className="form-grid">
           <div className="field">
             <label>{t('login.phone')}</label>
@@ -67,7 +139,7 @@ export function LoginPage() {
           {mode === 'otp' ? (
             <div className="field">
               <label>{t('login.otp')}</label>
-              <input value={code} onChange={(e) => setCode(e.target.value)} />
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={otpReady ? '' : '••••••'} />
             </div>
           ) : (
             <div className="field">
@@ -77,8 +149,8 @@ export function LoginPage() {
           )}
         </div>
         {error && <p className="err">{error}</p>}
-        <button className="accent" style={{ marginTop: 8, width: '100%' }} disabled={busy} onClick={() => void enter()}>
-          {busy ? t('login.signingIn') : t('login.continue')}
+        <button className="accent" style={{ marginTop: 8, width: '100%' }} disabled={busy} onClick={() => void submit()}>
+          {mode === 'password' ? (busy ? t('login.signingIn') : t('login.continue')) : otpButtonLabel}
         </button>
         <p className="auth-switch">
           {t('login.noAccount')} <Link to="/register">{t('login.goRegister')}</Link>
@@ -91,10 +163,7 @@ export function LoginPage() {
             key={a.phone}
             className="account"
             disabled={busy}
-            onClick={() => {
-              setPhone(a.phone)
-              void enter(a.phone)
-            }}
+            onClick={() => void quickEnter(a.phone)}
           >
             <span>
               <span className="account-role">{a.tag}</span>
