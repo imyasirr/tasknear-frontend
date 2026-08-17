@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useI18n } from './i18n/LocaleContext'
 
 export { DataTable, exportCsv } from './components/DataTable'
@@ -63,6 +63,54 @@ export function PageHeader({
         {subtitle && <p>{subtitle}</p>}
       </div>
       {actions && <div className="btn-row">{actions}</div>}
+    </div>
+  )
+}
+
+export function AvailabilityToggle({
+  available,
+  onToggle,
+  disabled,
+  onlineLabel,
+  offlineLabel,
+}: {
+  available: boolean
+  onToggle: (next: boolean) => void | Promise<void>
+  disabled?: boolean
+  onlineLabel?: string
+  offlineLabel?: string
+}) {
+  const { t } = useI18n()
+  const [busy, setBusy] = useState(false)
+  const on = available
+  const label = on ? (onlineLabel ?? t('users.available')) : (offlineLabel ?? t('users.offline'))
+
+  async function toggle() {
+    if (disabled || busy) return
+    setBusy(true)
+    try {
+      await onToggle(!on)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={`avail-toggle${on ? ' on' : ''}${busy ? ' busy' : ''}`}>
+      <span className="avail-toggle-label">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        className="avail-toggle-switch"
+        aria-checked={on}
+        aria-label={label}
+        disabled={disabled || busy}
+        onClick={() => void toggle()}
+      >
+        <span className="avail-toggle-track" aria-hidden>
+          <span className="avail-toggle-thumb" />
+        </span>
+      </button>
     </div>
   )
 }

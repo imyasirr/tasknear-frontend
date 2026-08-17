@@ -4,13 +4,15 @@ import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { useI18n } from '../i18n/LocaleContext'
 
-type Portal = 'client' | 'admin' | 'caterer'
+type Portal = 'client' | 'admin' | 'caterer' | 'worker'
 
-const LINKS: Record<Portal, { to: string; key: string }[]> = {
+type LinkRow = { to: string; key: string }
+type NavSection = { labelKey: string; links: LinkRow[] }
+
+const PORTAL_LINKS: Record<Exclude<Portal, 'admin'>, LinkRow[]> = {
   client: [
     { to: '/app', key: 'nav.bookings' },
-    { to: '/app/events/new', key: 'nav.newEvent' },
-    { to: '/app/tasks/new', key: 'nav.postTask' },
+    { to: '/app/post', key: 'nav.postJob' },
     { to: '/app/plans', key: 'nav.plans' },
     { to: '/app/settings', key: 'nav.settings' },
   ],
@@ -20,22 +22,53 @@ const LINKS: Record<Portal, { to: string; key: string }[]> = {
     { to: '/caterer/profile', key: 'nav.company' },
     { to: '/caterer/settings', key: 'nav.settings' },
   ],
-  admin: [
-    { to: '/admin', key: 'nav.desk' },
-    { to: '/admin/events', key: 'nav.events' },
-    { to: '/admin/tasks', key: 'nav.tasks' },
-    { to: '/admin/cities', key: 'nav.cities' },
-    { to: '/admin/users', key: 'nav.users' },
-    { to: '/admin/payouts', key: 'nav.payouts' },
-    { to: '/admin/matching', key: 'nav.matching' },
-    { to: '/admin/reports', key: 'nav.reports' },
-    { to: '/admin/activity', key: 'nav.activity' },
-    { to: '/admin/billing', key: 'nav.billing' },
-    { to: '/admin/settings', key: 'nav.settings' },
+  worker: [
+    { to: '/worker', key: 'nav.jobs' },
+    { to: '/worker/profile', key: 'nav.kyc' },
+    { to: '/worker/settings', key: 'nav.settings' },
   ],
 }
 
-type LinkRow = { to: string; key: string }
+const ADMIN_SECTIONS: NavSection[] = [
+  {
+    labelKey: 'nav.sectionOverview',
+    links: [{ to: '/admin', key: 'nav.desk' }],
+  },
+  {
+    labelKey: 'nav.sectionMarketplace',
+    links: [
+      { to: '/admin/catalog', key: 'nav.catalog' },
+      { to: '/admin/events', key: 'nav.events' },
+      { to: '/admin/tasks', key: 'nav.tasks' },
+      { to: '/admin/fill', key: 'nav.fillBoard' },
+      { to: '/admin/task-board', key: 'nav.taskBoard' },
+    ],
+  },
+  {
+    labelKey: 'nav.sectionPeople',
+    links: [
+      { to: '/admin/kyc', key: 'nav.kycReview' },
+      { to: '/admin/users', key: 'nav.users' },
+      { to: '/admin/cities', key: 'nav.cities' },
+    ],
+  },
+  {
+    labelKey: 'nav.sectionMoney',
+    links: [
+      { to: '/admin/payouts', key: 'nav.payouts' },
+      { to: '/admin/billing', key: 'nav.billing' },
+    ],
+  },
+  {
+    labelKey: 'nav.sectionSystem',
+    links: [
+      { to: '/admin/matching', key: 'nav.matching' },
+      { to: '/admin/reports', key: 'nav.reports' },
+      { to: '/admin/activity', key: 'nav.activity' },
+      { to: '/admin/settings', key: 'nav.settings' },
+    ],
+  },
+]
 
 function SideNav({ links, onNavigate }: { links: LinkRow[]; onNavigate?: () => void }) {
   const { t } = useI18n()
@@ -46,6 +79,25 @@ function SideNav({ links, onNavigate }: { links: LinkRow[]; onNavigate?: () => v
         <NavLink key={l.to} to={l.to} end={l.to.split('/').length <= 2} onClick={onNavigate}>
           {t(l.key)}
         </NavLink>
+      ))}
+    </nav>
+  )
+}
+
+function AdminSideNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useI18n()
+
+  return (
+    <nav className="side-nav">
+      {ADMIN_SECTIONS.map((section) => (
+        <div className="side-nav-section" key={section.labelKey}>
+          <div className="side-nav-label">{t(section.labelKey)}</div>
+          {section.links.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to.split('/').length <= 2} onClick={onNavigate}>
+              {t(l.key)}
+            </NavLink>
+          ))}
+        </div>
       ))}
     </nav>
   )
@@ -93,7 +145,7 @@ export function AppShell({ portal }: { portal: Portal }) {
   const { t } = useI18n()
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const links = LINKS[portal]
+  const links = portal === 'admin' ? null : PORTAL_LINKS[portal]
   const tag = portal === 'client' ? t('nav.client') : portal === 'caterer' ? t('nav.caterer') : t('nav.ops')
   const closeDrawer = () => setDrawerOpen(false)
 
@@ -116,10 +168,10 @@ export function AppShell({ portal }: { portal: Portal }) {
   }, [drawerOpen])
 
   return (
-    <div className="app">
+    <div className={`app${portal === 'admin' ? ' portal-admin' : ''}`}>
       <aside className="sidebar sidebar-desktop" aria-label={t('nav.menu')}>
         <Brand tag={tag} />
-        <SideNav links={links} />
+        {portal === 'admin' ? <AdminSideNav /> : <SideNav links={links!} />}
         <SideUser />
       </aside>
 
@@ -150,7 +202,7 @@ export function AppShell({ portal }: { portal: Portal }) {
 
         <aside
           id="app-drawer"
-          className={`sidebar drawer${drawerOpen ? ' open' : ''}`}
+          className={`sidebar drawer${drawerOpen ? ' open' : ''}${portal === 'admin' ? ' portal-admin-drawer' : ''}`}
           aria-hidden={!drawerOpen}
           aria-label={t('nav.menu')}
         >
@@ -160,7 +212,7 @@ export function AppShell({ portal }: { portal: Portal }) {
               ×
             </button>
           </div>
-          <SideNav links={links} onNavigate={closeDrawer} />
+          {portal === 'admin' ? <AdminSideNav onNavigate={closeDrawer} /> : <SideNav links={links!} onNavigate={closeDrawer} />}
           <SideUser onDone={closeDrawer} />
         </aside>
 

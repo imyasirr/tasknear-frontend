@@ -21,7 +21,11 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const res = await fetch(`/api/v1${path}`, { ...options, headers })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const message = data.message || data.errors && Object.values(data.errors).flat().join(' ') || 'Request failed'
+    const errors = data.errors as Record<string, string[] | string> | undefined
+    const fieldMessage = errors
+      ? Object.values(errors).flatMap((v) => (Array.isArray(v) ? v : [v])).join(' ')
+      : ''
+    const message = fieldMessage || data.message || 'Request failed'
     throw new Error(typeof message === 'string' ? message : 'Request failed')
   }
   return data as T

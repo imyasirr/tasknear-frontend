@@ -1,28 +1,37 @@
-import type { ReactNode } from 'react'
+import { NavLink, Outlet } from 'react-router-dom'
+import { LoginBrandVisual } from '../components/LoginBrandVisual'
 import { useI18n } from '../i18n/LocaleContext'
 import type { Locale } from '../i18n/messages'
 
-export function AuthShell({ children }: { children: ReactNode }) {
+export function AuthShell() {
   const { t, locale, setLocale } = useI18n()
 
   return (
-    <div className="login">
-      <section className="login-brand">
-        <div>
-          <div className="logo">Task<span>Near</span></div>
-          <h1>{t('brand.tagline')}</h1>
-          <p>{t('brand.blurb')}</p>
-          <div className="login-pills">
-            <span>Lucknow</span>
-            <span>Events</span>
-            <span>Weekday tasks</span>
+    <div className="auth-shell">
+      <aside className="auth-brand">
+        <div className="auth-brand-inner">
+          <div className="auth-brand-head">
+            <div className="logo">Task<span>Near</span></div>
+            <span className="auth-brand-badge">{t('brand.badge')}</span>
           </div>
+          <h1>{t('brand.tagline')}</h1>
+          <p className="auth-brand-lead">{t('brand.blurb')}</p>
+          <LoginBrandVisual />
+          <p className="auth-brand-foot">{t('brand.city')}</p>
         </div>
-        <p>{t('brand.city')}</p>
-      </section>
-      <section className="login-panel">
-        <div className="login-box">
-          <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+      </aside>
+
+      <main className="auth-main">
+        <div className="auth-main-inner">
+          <header className="auth-toolbar">
+            <nav className="auth-route-tabs" aria-label={t('login.portal')}>
+              <NavLink to="/login" className={({ isActive }) => `auth-route-tab${isActive ? ' on' : ''}`}>
+                {t('login.title')}
+              </NavLink>
+              <NavLink to="/register" className={({ isActive }) => `auth-route-tab${isActive ? ' on' : ''}`}>
+                {t('register.title')}
+              </NavLink>
+            </nav>
             <div className="lang-switch compact">
               {(['en', 'hi'] as Locale[]).map((code) => (
                 <button key={code} type="button" className={locale === code ? 'on' : ''} onClick={() => void setLocale(code)}>
@@ -30,10 +39,10 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 </button>
               ))}
             </div>
-          </div>
-          {children}
+          </header>
+          <Outlet />
         </div>
-      </section>
+      </main>
     </div>
   )
 }

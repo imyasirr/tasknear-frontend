@@ -3,6 +3,7 @@ import { api } from '../../api/client'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, rupee, when, type Column } from '../../ui'
+import { AdminAlert, AdminFormCard, AdminPage, AdminSection, AdminTableCard, AdminWorkspace } from './admin-ui'
 
 type Feature = { id: number; slug: string; name: string; description?: string }
 type Plan = {
@@ -69,94 +70,119 @@ export function AdminBillingPage() {
   }
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('billing.title')} subtitle={t('billing.subtitle')} />
-      {error && <p className="err">{error}</p>}
-      <div className="card" style={{ marginBottom: 18 }}>
-        <div className="card-kicker">{t('billing.fee')}</div>
-        <p style={{ marginBottom: 12 }}>{t('billing.feeHint')}</p>
+      <AdminAlert message={error} />
+
+      <AdminFormCard
+        kicker={t('billing.fee')}
+        hint={t('billing.feeHint')}
+        actions={(
+          <button className="accent" disabled={busy} onClick={async () => {
+            setBusy(true)
+            try {
+              await api('/admin/billing', { method: 'PUT', body: JSON.stringify({ commission_bps: bps }) })
+              await load()
+            } catch (e) { setError(e instanceof Error ? e.message : 'Save failed') }
+            finally { setBusy(false) }
+          }}
+          >
+            {t('common.save')}
+          </button>
+        )}
+      >
         <div className="form-grid">
           <div className="field">
             <label>{t('billing.percent')}</label>
             <input type="number" min={0} max={50} step={0.5} value={bps / 100} onChange={(e) => setBps(Math.round(Number(e.target.value) * 100))} />
           </div>
         </div>
-        <p>{t('billing.preview', { pct: (bps / 100).toFixed(bps % 100 === 0 ? 0 : 1), fee: rupee(Math.round(900 * bps / 10000)), total: rupee(900 + Math.round(900 * bps / 10000)) })}</p>
-        <button style={{ marginTop: 12 }} disabled={busy} onClick={async () => {
-          setBusy(true)
-          try {
-            await api('/admin/billing', { method: 'PUT', body: JSON.stringify({ commission_bps: bps }) })
-            await load()
-          } catch (e) { setError(e instanceof Error ? e.message : 'Save failed') }
-          finally { setBusy(false) }
-        }}>{t('common.save')}</button>
-      </div>
+        <p className="admin-form-hint">{t('billing.preview', { pct: (bps / 100).toFixed(bps % 100 === 0 ? 0 : 1), fee: rupee(Math.round(900 * bps / 10000)), total: rupee(900 + Math.round(900 * bps / 10000)) })}</p>
+      </AdminFormCard>
 
-      <div className="split even" style={{ marginBottom: 22 }}>
-        <div>
-          {plans.map((p) => (
-            <button type="button" key={p.id} className="card earn-row" onClick={() => {
-              setEditing(p.id)
-              setForm({
-                name: p.name,
-                name_hi: p.name_hi || '',
-                tagline: p.tagline || '',
-                price_inr: p.price_inr,
-                duration_days: p.duration_days,
-                is_active: p.is_active,
-                feature_ids: (p.features || []).map((f) => f.id),
-              })
-            }}>
-              <div className="btn-row" style={{ justifyContent: 'space-between' }}>
-                <strong>{p.name}</strong>
-                <StatusBadge value={p.is_active ? 'active' : 'pending'} />
-              </div>
-              <div className="meta">
-                <span>{rupee(p.price_inr)}</span>
-                <span>{p.duration_days}d</span>
-                <span>{(p.features || []).map((f) => f.name).join(' · ')}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-        <div className="side-panel card">
-          <div className="card-kicker">{editing ? t('billing.editPlan') : t('billing.newPlan')}</div>
-          <div className="field"><label>{t('billing.planName')}</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div className="field"><label>Hindi</label><input value={form.name_hi} onChange={(e) => setForm({ ...form, name_hi: e.target.value })} /></div>
-          <div className="field"><label>{t('billing.tagline')}</label><input value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} /></div>
-          <div className="form-grid">
-            <div className="field"><label>{t('cols.amount')}</label><input type="number" value={form.price_inr} onChange={(e) => setForm({ ...form, price_inr: Number(e.target.value) })} /></div>
-            <div className="field"><label>{t('billing.days')}</label><input type="number" value={form.duration_days} onChange={(e) => setForm({ ...form, duration_days: Number(e.target.value) })} /></div>
-          </div>
-          <div className="field">
-            <label>{t('billing.features')}</label>
-            {features.map((f) => (
-              <label key={f.id} className="skill-chip">
-                <input type="checkbox" checked={form.feature_ids.includes(f.id)} onChange={() => toggleFeature(f.id)} />
-                <span><strong>{f.name}</strong><div className="meta"><span>{f.slug}</span></div></span>
-              </label>
+      <AdminWorkspace
+        even
+        table={(
+          <div className="admin-plan-list">
+            {plans.map((p) => (
+              <button type="button" key={p.id} className={`card earn-row${editing === p.id ? ' on' : ''}`} onClick={() => {
+                setEditing(p.id)
+                setForm({
+                  name: p.name,
+                  name_hi: p.name_hi || '',
+                  tagline: p.tagline || '',
+                  price_inr: p.price_inr,
+                  duration_days: p.duration_days,
+                  is_active: p.is_active,
+                  feature_ids: (p.features || []).map((f) => f.id),
+                })
+              }}
+              >
+                <div className="btn-row admin-board-badges">
+                  <strong>{p.name}</strong>
+                  <StatusBadge value={p.is_active ? 'active' : 'pending'} />
+                </div>
+                <div className="meta">
+                  <span>{rupee(p.price_inr)}</span>
+                  <span>{p.duration_days}d</span>
+                  <span>{(p.features || []).map((f) => f.name).join(' · ')}</span>
+                </div>
+              </button>
             ))}
           </div>
-          <div className="btn-row">
-            <button disabled={busy || !form.name} onClick={async () => {
-              setBusy(true)
-              try {
-                if (editing) await api(`/admin/subscription-plans/${editing}`, { method: 'PUT', body: JSON.stringify(form) })
-                else await api('/admin/subscription-plans', { method: 'POST', body: JSON.stringify(form) })
-                setEditing(null)
-                setForm(emptyPlan)
-                await load()
-              } catch (e) { setError(e instanceof Error ? e.message : 'Save failed') }
-              finally { setBusy(false) }
-            }}>{t('common.save')}</button>
-            {editing && <button className="ghost" onClick={() => { setEditing(null); setForm(emptyPlan) }}>{t('common.cancel')}</button>}
+        )}
+        detail={(
+          <div className="side-panel">
+            <AdminFormCard
+              kicker={editing ? t('billing.editPlan') : t('billing.newPlan')}
+              actions={(
+                <>
+                  <button className="accent" disabled={busy || !form.name} onClick={async () => {
+                    setBusy(true)
+                    try {
+                      if (editing) await api(`/admin/subscription-plans/${editing}`, { method: 'PUT', body: JSON.stringify(form) })
+                      else await api('/admin/subscription-plans', { method: 'POST', body: JSON.stringify(form) })
+                      setEditing(null)
+                      setForm(emptyPlan)
+                      await load()
+                    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed') }
+                    finally { setBusy(false) }
+                  }}
+                  >
+                    {t('common.save')}
+                  </button>
+                  {editing && <button className="ghost" type="button" onClick={() => { setEditing(null); setForm(emptyPlan) }}>{t('common.cancel')}</button>}
+                </>
+              )}
+            >
+              <div className="field"><label>{t('billing.planName')}</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div className="field"><label>Hindi</label><input value={form.name_hi} onChange={(e) => setForm({ ...form, name_hi: e.target.value })} /></div>
+              <div className="field"><label>{t('billing.tagline')}</label><input value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} /></div>
+              <div className="form-grid">
+                <div className="field"><label>{t('cols.amount')}</label><input type="number" value={form.price_inr} onChange={(e) => setForm({ ...form, price_inr: Number(e.target.value) })} /></div>
+                <div className="field"><label>{t('billing.days')}</label><input type="number" value={form.duration_days} onChange={(e) => setForm({ ...form, duration_days: Number(e.target.value) })} /></div>
+              </div>
+              <div className="field">
+                <label>{t('billing.features')}</label>
+                <div className="admin-feature-list">
+                  {features.map((f) => (
+                    <label key={f.id} className="skill-chip">
+                      <input type="checkbox" checked={form.feature_ids.includes(f.id)} onChange={() => toggleFeature(f.id)} />
+                      <span><strong>{f.name}</strong><div className="meta"><span>{f.slug}</span></div></span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </AdminFormCard>
           </div>
-        </div>
-      </div>
+        )}
+      />
 
-      <div className="card flush">
-        <DataTable rows={subs} columns={columns} rowKey={(s) => s.id} filename="tasknear-subscriptions" empty={t('billing.noSubs')} searchPlaceholder={t('billing.searchSubs')} />
-      </div>
-    </div>
+      <AdminSection>
+        <AdminTableCard>
+          <DataTable rows={subs} columns={columns} rowKey={(s) => s.id} filename="tasknear-subscriptions" empty={t('billing.noSubs')} searchPlaceholder={t('billing.searchSubs')} />
+        </AdminTableCard>
+      </AdminSection>
+    </AdminPage>
   )
 }

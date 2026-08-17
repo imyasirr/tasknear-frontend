@@ -23,7 +23,7 @@ type AuthState = {
   register: (input: {
     phone: string
     name: string
-    role: 'customer' | 'caterer'
+    role: 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro'
     city?: string
     password: string
     company_name?: string
@@ -31,6 +31,7 @@ type AuthState = {
   requestOtp: (phone: string, intent?: 'login') => Promise<string | undefined>
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  applyUser: (user: User) => void
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -54,6 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  function applyUser(next: User) {
+    setUser(next)
   }
 
   useEffect(() => {
@@ -106,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     refresh,
+    applyUser,
   }), [user, loading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

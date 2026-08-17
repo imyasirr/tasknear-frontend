@@ -24,6 +24,10 @@ export function bookingPath(row?: SlugRow | null): string {
   return eventPath(row)
 }
 
+export function workerJobPath(id: number | string): string {
+  return `/worker/jobs/${id}`
+}
+
 export function catererJobPath(row?: SlugRow | null, offerId?: number): string {
   return `/caterer/jobs/${slugOf(row?.service_request || row, offerId)}`
 }

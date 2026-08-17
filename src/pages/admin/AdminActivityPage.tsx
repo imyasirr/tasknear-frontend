@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, type Column } from '../../ui'
+import { AdminAlert, AdminDetailCard, AdminDetailStack, AdminPage, AdminTableCard, AdminWorkspace } from './admin-ui'
 
 type Audit = { id: number; action: string; created_at?: string; actor?: { name: string }; payload?: Record<string, unknown> }
 type Note = { id: number; channel: string; template: string; status: string; created_at?: string; user?: { name: string } }
@@ -40,50 +41,53 @@ export function AdminActivityPage() {
   if (!ready) return <Loader />
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('activity.title')} subtitle={t('activity.subtitle')} />
-      {error && <p className="err">{error}</p>}
-      <div className="split even">
-        <div className="card flush">
-          <div className="card-kicker" style={{ padding: '14px 16px 0' }}>{t('activity.audit')}</div>
-          <DataTable
-            rows={audit}
-            columns={auditCols}
-            rowKey={(a) => a.id}
-            filename="tasknear-audit"
-            searchPlaceholder={t('activity.searchAudit')}
-            selectedKey={picked?.id}
-            onSelect={setPicked}
-            empty={t('activity.noAudit')}
-          />
-        </div>
-        <div className="side-panel">
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-kicker">{t('activity.selected')}</div>
-            {picked ? (
-              <>
-                <h2>{picked.action}</h2>
-                <div className="kv">
-                  <div className="kv-row"><span>Actor</span><strong>{picked.actor?.name || 'System'}</strong></div>
-                  <div className="kv-row"><span>When</span><strong>{when(picked.created_at) || '—'}</strong></div>
-                </div>
-              </>
-            ) : <p>Select an audit row.</p>}
-          </div>
-          <div className="card flush">
-            <div className="card-kicker" style={{ padding: '14px 16px 0' }}>{t('activity.notes')}</div>
+      <AdminAlert message={error} />
+      <AdminWorkspace
+        even
+        table={(
+          <AdminTableCard title={t('activity.audit')}>
             <DataTable
-              rows={notes}
-              columns={noteCols}
-              rowKey={(n) => n.id}
-              filename="tasknear-notifications"
-              searchPlaceholder={t('activity.searchNotes')}
-              pageSize={8}
-              empty={t('activity.noNotes')}
+              rows={audit}
+              columns={auditCols}
+              rowKey={(a) => a.id}
+              filename="tasknear-audit"
+              searchPlaceholder={t('activity.searchAudit')}
+              selectedKey={picked?.id}
+              onSelect={setPicked}
+              empty={t('activity.noAudit')}
             />
-          </div>
-        </div>
-      </div>
-    </div>
+          </AdminTableCard>
+        )}
+        detail={(
+          <AdminDetailStack>
+            <AdminDetailCard
+              kicker={t('activity.selected')}
+              title={picked?.action}
+              empty={t('common.selectRow')}
+            >
+              {picked ? (
+                <div className="kv">
+                  <div className="kv-row"><span>{t('cols.actor')}</span><strong>{picked.actor?.name || 'System'}</strong></div>
+                  <div className="kv-row"><span>{t('cols.when')}</span><strong>{when(picked.created_at) || '—'}</strong></div>
+                </div>
+              ) : null}
+            </AdminDetailCard>
+            <AdminTableCard title={t('activity.notes')}>
+              <DataTable
+                rows={notes}
+                columns={noteCols}
+                rowKey={(n) => n.id}
+                filename="tasknear-notifications"
+                searchPlaceholder={t('activity.searchNotes')}
+                pageSize={8}
+                empty={t('activity.noNotes')}
+              />
+            </AdminTableCard>
+          </AdminDetailStack>
+        )}
+      />
+    </AdminPage>
   )
 }

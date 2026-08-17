@@ -8,6 +8,7 @@ export type CategoryRow = {
   vertical?: string
   default_rate_inr: number
   default_duration_minutes?: number
+  is_active?: boolean
 }
 
 export function categoryLabel(c: CategoryRow, locale: Locale | string): string {

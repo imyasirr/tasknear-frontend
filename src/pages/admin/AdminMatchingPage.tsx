@@ -3,6 +3,7 @@ import { api } from '../../api/client'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
 import { Loader, PageHeader } from '../../ui'
+import { AdminAlert, AdminFormCard, AdminPage } from './admin-ui'
 
 type MatchingSettings = {
   vendor_offer_seconds: number
@@ -27,12 +28,37 @@ export function AdminMatchingPage() {
   if (!ready || !settings) return <Loader label={t('common.loading')} />
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('matching.title')} subtitle={t('matching.subtitle')} />
-      {error && <p className="err">{error}</p>}
-      <div className="card" style={{ maxWidth: 560 }}>
-        <div className="card-kicker">{t('matching.ringTimer')}</div>
-        <p style={{ marginBottom: 12 }}>{t('matching.ringHint')}</p>
+      <AdminAlert message={error} />
+      <AdminFormCard
+        narrow
+        kicker={t('matching.ringTimer')}
+        hint={t('matching.ringHint')}
+        actions={(
+          <button
+            className="accent"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              setError('')
+              try {
+                await api('/admin/matching', {
+                  method: 'PUT',
+                  body: JSON.stringify({ vendor_offer_seconds: seconds }),
+                })
+                await load()
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Save failed')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {t('common.save')}
+          </button>
+        )}
+      >
         <div className="form-grid">
           <div className="field">
             <label>{t('matching.ringSeconds')}</label>
@@ -45,33 +71,11 @@ export function AdminMatchingPage() {
             />
           </div>
         </div>
-        <p className="meta" style={{ marginTop: 8 }}>
+        <p className="meta admin-form-hint">
           {t('matching.range', { min: settings.min_ring_seconds, max: settings.max_ring_seconds })}
         </p>
-        <p style={{ marginTop: 10 }}>{t('matching.preview', { n: seconds })}</p>
-        <button
-          className="accent"
-          style={{ marginTop: 12 }}
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true)
-            setError('')
-            try {
-              await api('/admin/matching', {
-                method: 'PUT',
-                body: JSON.stringify({ vendor_offer_seconds: seconds }),
-              })
-              await load()
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Save failed')
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          {t('common.save')}
-        </button>
-      </div>
-    </div>
+        <p className="admin-form-hint">{t('matching.preview', { n: seconds })}</p>
+      </AdminFormCard>
+    </AdminPage>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, rupee, type Column } from '../../ui'
+import { AdminAlert, AdminDetailCard, AdminPage, AdminStat, AdminStats, AdminTableCard, AdminWorkspace } from './admin-ui'
 
 type Report = {
   id: number
@@ -42,53 +43,61 @@ export function AdminReportsPage() {
   if (!ready) return <Loader />
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('reports.title')} subtitle={t('reports.subtitle')} />
-      {error && <p className="err">{error}</p>}
-      <div className="grid three" style={{ marginBottom: 16 }}>
-        <div className="card"><div className="card-kicker">{t('reports.total')}</div><div className="stat">{rows.length}</div></div>
-        <div className="card"><div className="card-kicker">{t('reports.open')}</div><div className="stat">{open}</div></div>
-        <div className="card"><div className="card-kicker">{t('reports.closed')}</div><div className="stat">{rows.length - open}</div></div>
-      </div>
-      <div className="split">
-        <div className="card flush">
-          <DataTable
-            rows={rows}
-            columns={columns}
-            rowKey={(r) => r.id}
-            filename="tasknear-reports"
-            searchPlaceholder={t('reports.search')}
-            selectedKey={picked?.id}
-            onSelect={setPicked}
-            empty={t('reports.empty')}
-          />
-        </div>
-        <div className="side-panel card">
-          <div className="card-kicker">{t('reports.review')}</div>
-          {picked ? (
-            <>
-              <h2>{picked.reported?.name}</h2>
-              <p style={{ margin: '8px 0 14px' }}>{picked.reason}</p>
-              <div className="kv">
-                <div className="kv-row"><span>From</span><strong>{picked.reporter?.name}</strong></div>
-                <div className="kv-row"><span>Phone</span><strong>{picked.reporter?.phone}</strong></div>
-                <div className="kv-row"><span>Job</span><strong>{picked.service_request?.event_detail?.title || picked.service_request?.task_detail?.title || '—'}</strong></div>
-                {picked.payout && (
-                  <div className="kv-row"><span>Payout</span><strong>#{picked.payout.id} · {rupee(picked.payout.amount_inr)} · {picked.payout.status}</strong></div>
-                )}
-                <div className="kv-row"><span>When</span><strong>{when(picked) || '—'}</strong></div>
-                <div className="kv-row"><span>Status</span><StatusBadge value={picked.status} /></div>
-              </div>
-              {picked.status === 'open' && (
-                <div className="btn-row" style={{ marginTop: 16 }}>
-                  <button onClick={async () => { await api(`/admin/reports/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'resolved' }) }); await load() }}>{t('reports.resolve')}</button>
+      <AdminStats>
+        <AdminStat label={t('reports.total')} value={rows.length} />
+        <AdminStat label={t('reports.open')} value={open} />
+        <AdminStat label={t('reports.closed')} value={rows.length - open} />
+      </AdminStats>
+      <AdminAlert message={error} />
+      <AdminWorkspace
+        table={(
+          <AdminTableCard>
+            <DataTable
+              rows={rows}
+              columns={columns}
+              rowKey={(r) => r.id}
+              filename="tasknear-reports"
+              searchPlaceholder={t('reports.search')}
+              selectedKey={picked?.id}
+              onSelect={setPicked}
+              empty={t('reports.empty')}
+            />
+          </AdminTableCard>
+        )}
+        detail={(
+          <div className="side-panel">
+            <AdminDetailCard
+              kicker={t('reports.review')}
+              title={picked?.reported?.name}
+              empty={t('common.selectRow')}
+              actions={picked?.status === 'open' ? (
+                <>
+                  <button className="accent" onClick={async () => { await api(`/admin/reports/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'resolved' }) }); await load() }}>{t('reports.resolve')}</button>
                   <button className="ghost" onClick={async () => { await api(`/admin/reports/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'dismissed' }) }); await load() }}>{t('reports.dismiss')}</button>
-                </div>
-              )}
-            </>
-          ) : <p>Select a report.</p>}
-        </div>
-      </div>
-    </div>
+                </>
+              ) : undefined}
+            >
+              {picked ? (
+                <>
+                  <p className="admin-form-hint">{picked.reason}</p>
+                  <div className="kv">
+                    <div className="kv-row"><span>From</span><strong>{picked.reporter?.name}</strong></div>
+                    <div className="kv-row"><span>{t('cols.phone')}</span><strong>{picked.reporter?.phone}</strong></div>
+                    <div className="kv-row"><span>Job</span><strong>{picked.service_request?.event_detail?.title || picked.service_request?.task_detail?.title || '—'}</strong></div>
+                    {picked.payout && (
+                      <div className="kv-row"><span>Payout</span><strong>#{picked.payout.id} · {rupee(picked.payout.amount_inr)} · {picked.payout.status}</strong></div>
+                    )}
+                    <div className="kv-row"><span>{t('cols.when')}</span><strong>{when(picked) || '—'}</strong></div>
+                    <div className="kv-row"><span>{t('cols.status')}</span><StatusBadge value={picked.status} /></div>
+                  </div>
+                </>
+              ) : null}
+            </AdminDetailCard>
+          </div>
+        )}
+      />
+    </AdminPage>
   )
 }

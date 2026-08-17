@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { adminBookingPath } from '../../lib/paths'
 import { api } from '../../api/client'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, rupee, type Column } from '../../ui'
+import { AdminAlert, AdminPage, AdminStatLink, AdminTableCard } from './admin-ui'
 
 type Booking = {
   id: number
@@ -21,6 +22,9 @@ type Booking = {
 type Dash = {
   clients: number
   caterers_active: number
+  workers_active: number
+  categories: number
+  provider_types: number
   events_open: number
   tasks_open: number
   payments_pending: number
@@ -39,12 +43,15 @@ export function AdminHomePage() {
   }, [])
 
   if (!dash && !error) return <Loader label={t('common.loading')} />
-  if (error && !dash) return <p className="err">{error}</p>
+  if (error && !dash) return <AdminPage><AdminAlert message={error} /></AdminPage>
   if (!dash) return <Loader label={t('common.loading')} />
 
   const cards = [
     [t('desk.clients'), dash.clients, '/admin/users'],
     [t('desk.caterers'), dash.caterers_active, '/admin/users'],
+    [t('desk.workers'), dash.workers_active, '/admin/kyc'],
+    [t('desk.providers'), dash.provider_types, '/admin/catalog'],
+    [t('desk.skills'), dash.categories, '/admin/catalog'],
     [t('desk.events'), dash.events_open, '/admin/events'],
     [t('desk.tasks'), dash.tasks_open, '/admin/tasks'],
     [t('desk.unpaid'), dash.payments_pending, '/admin/events'],
@@ -62,21 +69,15 @@ export function AdminHomePage() {
   ]
 
   return (
-    <div className="page">
-      <PageHeader
-        title={t('desk.title')}
-        subtitle={t('desk.subtitle')}
-      />
-      <div className="grid four">
+    <AdminPage>
+      <PageHeader title={t('desk.title')} subtitle={t('desk.subtitle')} />
+      <AdminAlert message={error} />
+      <div className="admin-desk-stats">
         {cards.map(([label, value, to]) => (
-          <Link key={label} to={to} className="card">
-            <div className="card-kicker">{label}</div>
-            <div className="stat">{value}</div>
-          </Link>
+          <AdminStatLink key={label} label={label} value={value} to={to} />
         ))}
       </div>
-      <div className="card flush" style={{ marginTop: 22 }}>
-        <div className="card-kicker" style={{ padding: '14px 16px 0' }}>{t('desk.recent')}</div>
+      <AdminTableCard title={t('desk.recent')}>
         <DataTable
           rows={dash.recent_bookings}
           columns={bookingCols}
@@ -87,7 +88,7 @@ export function AdminHomePage() {
           empty={t('desk.noBookings')}
           onSelect={(row) => navigate(adminBookingPath(row))}
         />
-      </div>
-    </div>
+      </AdminTableCard>
+    </AdminPage>
   )
 }

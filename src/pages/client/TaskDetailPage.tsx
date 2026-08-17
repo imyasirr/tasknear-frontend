@@ -6,8 +6,12 @@ import { ClientRepostCard } from '../../components/ClientRepostCard'
 import { JobLayout, PayCard, RolePackage } from '../../components/JobLayout'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
+import { categoryLabel } from '../../lib/categories'
+import { WORKER_ROLES } from '../../lib/providerTypes'
+import { CrewAttendance, type CrewRow } from '../../components/CrewAttendance'
 import { VenueOtpCard, type VenueAttendance } from '../../components/VenueOtpCard'
 import { VendorStatus, type VendorCompany, type VendorRing } from '../../components/VendorStatus'
+import { WorkerStatus, type WorkerRing } from '../../components/WorkerStatus'
 import { LiveMark, Loader, PageHeader, StatusBadge, rupee } from '../../ui'
 
 type Task = {
@@ -27,16 +31,20 @@ type Task = {
     drop_address?: string
     duration_minutes?: number
     rate_per_worker_inr?: number
+    category?: { id: number; name: string; name_hi?: string; slug?: string }
   }
+  provider_type?: string
   payments?: Array<{ id: number; amount_inr: number; labor_inr?: number; commission_inr?: number; fee_waived?: boolean; status: string }>
   vendor_company?: VendorCompany
   vendor_ring?: VendorRing
+  worker_ring?: WorkerRing
   vendor_attendance?: VenueAttendance | null
+  client_crew?: CrewRow[]
 }
 
 export function TaskDetailPage() {
   const { slug } = useParams()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [task, setTask] = useState<Task | null>(null)
   const [error, setError] = useState('')
 
@@ -53,6 +61,7 @@ export function TaskDetailPage() {
 
   if (!ready) return <Loader label={t('common.loading')} />
   if (!task) return <p className="err">{error || t('common.empty')}</p>
+  const isWorkerJob = task.provider_type ? (WORKER_ROLES as readonly string[]).includes(task.provider_type) : false
   const payment = task.payments?.[0]
   const ringing = task.status === 'matching' || task.status === 'filling'
   const live = ['matching', 'filling', 'confirmed', 'in_progress'].includes(task.status)
@@ -95,20 +104,54 @@ export function TaskDetailPage() {
               onError={setError}
             />
           )}
-          {showOtp && <VenueOtpCard attendance={task.vendor_attendance} />}
+          {showOtp && task.vendor_attendance && (
+            <VenueOtpCard attendance={task.vendor_attendance} worker={isWorkerJob} />
+          )}
+          {showOtp && isWorkerJob && !task.vendor_attendance && (task.client_crew?.length ?? 0) > 1 && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 14px' }}>{t('client.venueOtpHintWorker')}</p>
+              <div className="crew-list">
+                {task.client_crew!.map((crew) => (
+                  <CrewAttendance key={crew.id} crew={crew} />
+                ))}
+              </div>
+            </div>
+          )}
+          {showOtp && isWorkerJob && !task.vendor_attendance && !(task.client_crew?.length) && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 0' }}>{t('client.waitingWorkerOtp')}</p>
+            </div>
+          )}
+          {showOtp && !isWorkerJob && !task.vendor_attendance && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 0' }}>{t('client.waitingAccept')}</p>
+            </div>
+          )}
           {error && <p className="err">{error}</p>}
         </>
       }
       main={
         <RolePackage
           headcount={task.required_workers}
-          shifts={task.task_detail ? [{ headcount: task.required_workers, rate_per_worker_inr: task.task_detail.rate_per_worker_inr, category: { name: t('client.crew') } }] : undefined}
+          shifts={task.task_detail ? [{
+            headcount: task.required_workers,
+            rate_per_worker_inr: task.task_detail.rate_per_worker_inr,
+            category: {
+              name: task.task_detail.category
+                ? categoryLabel({ ...task.task_detail.category, default_rate_inr: 0 }, locale)
+                : t('client.crew'),
+            },
+          }] : undefined}
           waiting={!task.vendor_company && ringing}
         />
       }
       side={
         <>
-          <VendorStatus company={task.vendor_company} ring={task.vendor_ring} />
+          <VendorStatus company={task.vendor_company} ring={isWorkerJob ? null : task.vendor_ring} />
+          <WorkerStatus ring={isWorkerJob ? task.worker_ring : null} />
           {payment && (
             <PayCard
               labor={payment.labor_inr || task.budget_inr}

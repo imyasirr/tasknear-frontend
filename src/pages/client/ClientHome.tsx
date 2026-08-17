@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
+import { categoryLabel, type CategoryRow } from '../../lib/categories'
 import { eventPath, taskPath } from '../../lib/paths'
+import { providerLabel, type ProviderTypeRow } from '../../lib/providerTypes'
 import { Loader, PageHeader, StatusBadge, rupee, when } from '../../ui'
 
 type Row = {
@@ -12,24 +14,37 @@ type Row = {
   status: string
   city: string
   budget_inr: number
+  provider_type?: string
   scheduled_start?: string
   event_detail?: { title: string; venue_name?: string }
-  task_detail?: { title: string }
+  task_detail?: { title: string; category?: CategoryRow }
   vendor_company?: { name?: string } | null
   vendor_ring?: { ringing?: boolean } | null
 }
 
+function providerName(providers: ProviderTypeRow[], slug: string | undefined, locale: string): string | null {
+  if (!slug) return null
+  const row = providers.find((p) => p.slug === slug)
+  return row ? providerLabel(row, locale) : slug
+}
+
 export function ClientHome() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [events, setEvents] = useState<Row[]>([])
   const [tasks, setTasks] = useState<Row[]>([])
+  const [providers, setProviders] = useState<ProviderTypeRow[]>([])
   const [error, setError] = useState('')
 
   const ready = useLivePoll(async () => {
     try {
-      const [e, t] = await Promise.all([api<Row[]>('/events'), api<Row[]>('/tasks')])
+      const [e, taskRows, providerRows] = await Promise.all([
+        api<Row[]>('/events'),
+        api<Row[]>('/tasks'),
+        api<ProviderTypeRow[]>('/provider-types'),
+      ])
       setEvents(e)
-      setTasks(t)
+      setTasks(taskRows)
+      setProviders(providerRows)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
     }
@@ -43,10 +58,7 @@ export function ClientHome() {
         title={t('client.bookings')}
         subtitle={t('client.bookingsSub')}
         actions={
-          <>
-            <Link to="/app/tasks/new"><button className="ghost">{t('client.postTask')}</button></Link>
-            <Link to="/app/events/new"><button className="accent">{t('client.createEvent')}</button></Link>
-          </>
+          <Link to="/app/post"><button className="accent">{t('client.postJob')}</button></Link>
         }
       />
       {error && <p className="err">{error}</p>}
@@ -61,6 +73,9 @@ export function ClientHome() {
               <span>{event.event_detail?.venue_name || 'Venue TBD'}</span>
               <span>{rupee(event.budget_inr)}</span>
               {event.scheduled_start && <span>{when(event.scheduled_start)}</span>}
+              {providerName(providers, event.provider_type, locale) && (
+                <span>{providerName(providers, event.provider_type, locale)}</span>
+              )}
               {event.vendor_company?.name && <span>{event.vendor_company.name}</span>}
               {event.vendor_ring?.ringing && <span>{t('nav.caterer')}</span>}
             </div>
@@ -76,6 +91,10 @@ export function ClientHome() {
             <h2 style={{ marginTop: 10 }}>{task.task_detail?.title}</h2>
             <div className="meta">
               <span>{task.city}</span>
+              {task.task_detail?.category && <span>{categoryLabel(task.task_detail.category, locale)}</span>}
+              {providerName(providers, task.provider_type, locale) && (
+                <span>{providerName(providers, task.provider_type, locale)}</span>
+              )}
               <span>{rupee(task.budget_inr)}</span>
             </div>
           </Link>

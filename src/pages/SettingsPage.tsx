@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth, type User } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
@@ -7,13 +7,14 @@ import type { Locale } from '../i18n/messages'
 import { PageHeader } from '../ui'
 
 export function SettingsPage() {
-  const { user, refresh } = useAuth()
+  const { user, refresh, applyUser } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const [name, setName] = useState(user?.name || '')
   const [city, setCity] = useState(user?.city || '')
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,18 +55,42 @@ export function SettingsPage() {
     }
   }
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
   async function savePhoto(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      setError(t('settings.photoTooLarge'))
+      return
+    }
+
     setBusy(true)
     setError('')
     setMessage('')
+    const localPreview = URL.createObjectURL(file)
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return localPreview
+    })
+
     const body = new FormData()
     body.append('avatar', file)
     try {
-      await api<User>('/me/avatar', { method: 'POST', body })
+      const updated = await api<User>('/me/avatar', { method: 'POST', body })
+      applyUser(updated)
       await refresh()
       setMessage(t('settings.photoSaved'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('settings.photoSaved'))
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+      setError(e instanceof Error ? e.message : t('settings.photoFail'))
     } finally {
       setBusy(false)
     }
@@ -80,23 +105,30 @@ export function SettingsPage() {
         <div className="card">
           <div className="card-kicker">{t('settings.profile')}</div>
           <div className="photo-row">
-            <Avatar name={user?.name} src={user?.avatar_url} size={84} />
+            <Avatar name={user?.name} src={previewUrl || user?.avatar_url} size={84} />
             <div>
               <h2>{t('settings.photo')}</h2>
               <p>{t('settings.photoHint')}</p>
-              <label className="ghost" style={{ display: 'inline-block', marginTop: 10 }}>
-                {t('settings.upload')}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) void savePhoto(file)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/jpg"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void savePhoto(file)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                className="ghost"
+                style={{ marginTop: 10 }}
+                disabled={busy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {busy ? t('common.saving') : t('settings.upload')}
+              </button>
             </div>
           </div>
           <div className="form-grid" style={{ marginTop: 18 }}>

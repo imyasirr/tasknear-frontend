@@ -1,32 +1,40 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { homeFor } from '../auth/home'
 import { useI18n } from '../i18n/LocaleContext'
-import { AuthShell } from '../layouts/AuthShell'
+import { providerDescription, providerLabel, type ProviderTypeRow } from '../lib/providerTypes'
 import { Loader } from '../ui'
 
 type City = { id: number; name: string }
 
 export function RegisterPage() {
   const { user, loading, register } = useAuth()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const navigate = useNavigate()
   const [cities, setCities] = useState<City[]>([])
+  const [providers, setProviders] = useState<ProviderTypeRow[]>([])
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('Lucknow')
-  const [role, setRole] = useState<'customer' | 'caterer'>('customer')
+  const [role, setRole] = useState<string>('customer')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const selectedProvider = providers.find((p) => p.slug === role)
+  const isVendor = selectedProvider?.match_mode === 'vendor'
+
   useEffect(() => {
-    api<City[]>('/cities').then((rows) => {
-      setCities(rows)
-      if (rows[0] && !rows.some((c) => c.name === city)) setCity(rows[0].name)
+    Promise.all([
+      api<City[]>('/cities'),
+      api<ProviderTypeRow[]>('/provider-types'),
+    ]).then(([cityRows, providerRows]) => {
+      setCities(cityRows)
+      setProviders(providerRows.filter((p) => p.active))
+      if (cityRows[0] && !cityRows.some((c) => c.name === city)) setCity(cityRows[0].name)
     }).catch(() => undefined)
   }, [])
 
@@ -40,10 +48,10 @@ export function RegisterPage() {
       const signed = await register({
         phone,
         name,
-        role,
+        role: role as 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro',
         city,
         password,
-        company_name: role === 'caterer' ? (company || name) : undefined,
+        company_name: isVendor ? (company || name) : undefined,
       })
       navigate(homeFor(signed.roles))
     } catch (e) {
@@ -54,58 +62,86 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthShell>
-      <h1>{t('register.title')}</h1>
-      <p style={{ margin: '0 0 18px' }}>{t('register.hint')}</p>
-      <div className="card">
-        <div className="form-grid">
-          <div className="field">
-            <label>{t('register.role')}</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as 'customer' | 'caterer')}>
-              <option value="customer">{t('login.client')}</option>
-              <option value="caterer">{t('login.caterer')}</option>
-            </select>
+    <div className="auth-page">
+        <header className="auth-header">
+          <h1>{t('register.title')}</h1>
+          <p>{t('register.hintProviders')}</p>
+        </header>
+
+        <div className="auth-card card">
+          <div className="card-kicker">{t('register.pickType')}</div>
+          <div className="auth-type-grid">
+            <button
+              type="button"
+              className={`auth-type-card${role === 'customer' ? ' on' : ''}`}
+              onClick={() => setRole('customer')}
+            >
+              <strong>{t('login.client')}</strong>
+              <span>{t('register.clientHint')}</span>
+            </button>
+            {providers.map((p) => (
+              <button
+                key={p.slug}
+                type="button"
+                className={`auth-type-card${role === p.slug ? ' on' : ''}`}
+                onClick={() => setRole(p.slug)}
+              >
+                <strong>{providerLabel(p, locale)}</strong>
+                <span>{providerDescription(p, locale)}</span>
+              </button>
+            ))}
           </div>
-          <div className="field">
-            <label>{role === 'caterer' ? t('register.contactName') : t('login.name')}</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          {role === 'caterer' && (
+
+          <div className="form-grid">
             <div className="field">
-              <label>{t('caterer.company')}</label>
-              <input value={company} onChange={(e) => setCompany(e.target.value)} />
+              <label>{isVendor ? t('register.contactName') : t('login.name')}</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-          )}
-          <div className="field">
-            <label>{t('login.phone')}</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))} />
+            {isVendor && (
+              <div className="field">
+                <label>{t('caterer.company')}</label>
+                <input value={company} onChange={(e) => setCompany(e.target.value)} />
+              </div>
+            )}
+            <div className="field">
+              <label>{t('login.phone')}</label>
+              <div className="phone-field">
+                <span className="phone-prefix" aria-hidden>+91</span>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label>{t('settings.city')}</label>
+              <select value={city} onChange={(e) => setCity(e.target.value)}>
+                {(cities.length ? cities : [{ id: 0, name: 'Lucknow' }]).map((c) => (
+                  <option key={c.id || c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>{t('login.password')}</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('register.passwordHint')}
+              />
+            </div>
           </div>
-          <div className="field">
-            <label>{t('settings.city')}</label>
-            <select value={city} onChange={(e) => setCity(e.target.value)}>
-              {(cities.length ? cities : [{ id: 0, name: 'Lucknow' }]).map((c) => (
-                <option key={c.id || c.name} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>{t('login.password')}</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('register.passwordHint')} />
-          </div>
+
+          {error && <p className="err auth-error">{error}</p>}
+
+          <button
+            className="accent auth-submit"
+            disabled={busy || !name || phone.length < 10 || password.length < 6}
+            onClick={() => void submit()}
+          >
+            {busy ? t('register.creating') : t('register.submit')}
+          </button>
         </div>
-        {error && <p className="err">{error}</p>}
-        <button
-          className="accent"
-          style={{ marginTop: 8, width: '100%' }}
-          disabled={busy || !name || phone.length < 10 || password.length < 6}
-          onClick={() => void submit()}
-        >
-          {busy ? t('register.creating') : t('register.submit')}
-        </button>
-        <p className="auth-switch">
-          {t('register.haveAccount')} <Link to="/login">{t('register.goLogin')}</Link>
-        </p>
-      </div>
-    </AuthShell>
+    </div>
   )
 }

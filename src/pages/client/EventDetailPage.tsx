@@ -6,8 +6,11 @@ import { ClientRepostCard } from '../../components/ClientRepostCard'
 import { JobLayout, PayCard, RolePackage } from '../../components/JobLayout'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
+import { CrewAttendance, type CrewRow } from '../../components/CrewAttendance'
 import { VenueOtpCard, type VenueAttendance } from '../../components/VenueOtpCard'
 import { VendorStatus, type VendorCompany, type VendorRing } from '../../components/VendorStatus'
+import { WorkerStatus, type WorkerRing } from '../../components/WorkerStatus'
+import { WORKER_ROLES } from '../../lib/providerTypes'
 import { LiveMark, Loader, PageHeader, StatusBadge, rupee } from '../../ui'
 
 type Shift = {
@@ -34,9 +37,12 @@ type EventDetail = {
     shifts?: Shift[]
   }
   payments?: Array<{ id: number; amount_inr: number; labor_inr?: number; commission_inr?: number; fee_waived?: boolean; status: string }>
+  provider_type?: string
   vendor_company?: VendorCompany
   vendor_ring?: VendorRing
+  worker_ring?: WorkerRing
   vendor_attendance?: VenueAttendance | null
+  client_crew?: CrewRow[]
 }
 
 export function EventDetailPage() {
@@ -58,6 +64,7 @@ export function EventDetailPage() {
 
   if (!ready) return <Loader label={t('common.loading')} />
   if (!event) return <p className="err">{error || t('common.empty')}</p>
+  const isWorkerJob = event.provider_type ? (WORKER_ROLES as readonly string[]).includes(event.provider_type) : false
   const payment = event.payments?.[0]
   const ringing = event.status === 'matching' || event.status === 'filling'
   const live = ['matching', 'filling', 'confirmed', 'in_progress'].includes(event.status)
@@ -107,14 +114,40 @@ export function EventDetailPage() {
               onError={setError}
             />
           )}
-          {showOtp && <VenueOtpCard attendance={event.vendor_attendance} />}
+          {showOtp && event.vendor_attendance && (
+            <VenueOtpCard attendance={event.vendor_attendance} worker={isWorkerJob} />
+          )}
+          {showOtp && isWorkerJob && !event.vendor_attendance && (event.client_crew?.length ?? 0) > 1 && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 14px' }}>{t('client.venueOtpHintWorker')}</p>
+              <div className="crew-list">
+                {event.client_crew!.map((crew) => (
+                  <CrewAttendance key={crew.id} crew={crew} />
+                ))}
+              </div>
+            </div>
+          )}
+          {showOtp && isWorkerJob && !event.vendor_attendance && !(event.client_crew?.length) && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 0' }}>{t('client.waitingWorkerOtp')}</p>
+            </div>
+          )}
+          {showOtp && !isWorkerJob && !event.vendor_attendance && (
+            <div className="card job-action">
+              <div className="card-kicker">{t('client.venueOtp')}</div>
+              <p style={{ margin: '6px 0 0' }}>{t('client.waitingAccept')}</p>
+            </div>
+          )}
           {error && <p className="err">{error}</p>}
         </>
       }
       main={<RolePackage shifts={event.event_detail?.shifts} waiting={!event.vendor_company && ringing} />}
       side={
         <>
-          <VendorStatus company={event.vendor_company} ring={event.vendor_ring} />
+          <VendorStatus company={event.vendor_company} ring={isWorkerJob ? null : event.vendor_ring} />
+          <WorkerStatus ring={isWorkerJob ? event.worker_ring : null} />
           {payment && (
             <PayCard
               labor={payment.labor_inr || event.budget_inr}

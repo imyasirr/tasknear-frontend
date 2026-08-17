@@ -6,6 +6,7 @@ import { slugOf } from '../../lib/paths'
 import { useAdminRingSeconds } from '../../hooks/useAdminRingSeconds'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, rupee, type Column } from '../../ui'
+import { AdminAlert, AdminDetailCard, AdminDetailStack, AdminPage, AdminTab, AdminTableCard, AdminTabs, AdminWorkspace } from './admin-ui'
 
 type Booking = {
   id: number
@@ -65,69 +66,78 @@ export function AdminTasksPage() {
     { key: 'status', header: t('cols.status'), sortValue: (row) => row.status, csv: (row) => row.status, render: (row) => <StatusBadge value={row.status} /> },
   ]
 
+  const tabs = [
+    ['open', t('tabs.open')],
+    ['filling', t('tabs.filling')],
+    ['confirmed', t('tabs.confirmed')],
+    ['completed', t('tabs.done')],
+    ['all', t('tabs.all')],
+  ] as const
+
   if (!ready) return <Loader />
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('tasks.title')} subtitle={t('tasks.subtitle')} />
-      <div className="tabs">
-        {[['open', t('tabs.open')], ['filling', t('tabs.filling')], ['confirmed', t('tabs.confirmed')], ['completed', t('tabs.done')], ['all', t('tabs.all')]].map(([id, label]) => (
-          <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+      <AdminTabs>
+        {tabs.map(([id, label]) => (
+          <AdminTab key={id} active={tab === id} onClick={() => setTab(id)}>{label}</AdminTab>
         ))}
-      </div>
-      {error && <p className="err">{error}</p>}
-      <div className="split">
-        <div className="card flush">
-          <DataTable
-            rows={list}
-            columns={columns}
-            rowKey={(t) => t.id}
-            filename="tasknear-tasks"
-            searchPlaceholder={t('tasks.search')}
-            selectedKey={picked?.id}
-            onSelect={select}
-            empty={t('tasks.empty')}
-          />
-        </div>
-        <div className="side-panel">
-          {picked ? (
-            <>
-              <div className="card">
-                <div className="card-kicker">Selected task</div>
-                <h2>{picked.task_detail?.title}</h2>
-                <div className="kv">
-                  <div className="kv-row"><span>{t('cols.client')}</span><strong>{picked.requester?.name}</strong></div>
-                  <div className="kv-row"><span>{t('cols.caterer')}</span><strong>{picked.vendor_company?.name || (picked.vendor_ring?.ringing ? t('client.vendorRinging', { n: picked.vendor_ring.count || 0 }) : '—')}</strong></div>
-                  <div className="kv-row"><span>Route</span><strong>{picked.task_detail?.pickup_address} → {picked.task_detail?.drop_address}</strong></div>
-                  <div className="kv-row"><span>{t('cols.crew')}</span><strong>{picked.required_workers}</strong></div>
-                  <div className="kv-row"><span>{t('cols.budget')}</span><strong>{rupee(picked.budget_inr)}</strong></div>
-                </div>
-                <AdminRematchControls
-                  bookingKey={slugOf(picked)}
-                  defaultSeconds={defaultRingSeconds}
-                  onDone={load}
-                  onError={setError}
-                />
-              </div>
-              {(picked.vendor_offers || []).length > 0 && (
-                <div className="card">
-                  <div className="card-kicker">{t('tabs.caterers')}</div>
-                  {picked.vendor_offers?.map((offer) => (
-                    <div className="worker-row" key={offer.id}>
-                      <div>
-                        <strong>{offer.company || t('nav.caterer')}</strong>
-                        <div className="meta"><StatusBadge value={offer.status} /><span>{offer.phone}</span></div>
+      </AdminTabs>
+      <AdminAlert message={error} />
+      <AdminWorkspace
+        table={(
+          <AdminTableCard>
+            <DataTable
+              rows={list}
+              columns={columns}
+              rowKey={(row) => row.id}
+              filename="tasknear-tasks"
+              searchPlaceholder={t('tasks.search')}
+              selectedKey={picked?.id}
+              onSelect={select}
+              empty={t('tasks.empty')}
+            />
+          </AdminTableCard>
+        )}
+        detail={(
+          <AdminDetailStack>
+            {picked ? (
+              <>
+                <AdminDetailCard kicker="Selected task" title={picked.task_detail?.title}>
+                  <div className="kv">
+                    <div className="kv-row"><span>{t('cols.client')}</span><strong>{picked.requester?.name}</strong></div>
+                    <div className="kv-row"><span>{t('cols.caterer')}</span><strong>{picked.vendor_company?.name || (picked.vendor_ring?.ringing ? t('client.vendorRinging', { n: picked.vendor_ring.count || 0 }) : '—')}</strong></div>
+                    <div className="kv-row"><span>Route</span><strong>{picked.task_detail?.pickup_address} → {picked.task_detail?.drop_address}</strong></div>
+                    <div className="kv-row"><span>{t('cols.crew')}</span><strong>{picked.required_workers}</strong></div>
+                    <div className="kv-row"><span>{t('cols.budget')}</span><strong>{rupee(picked.budget_inr)}</strong></div>
+                  </div>
+                  <AdminRematchControls
+                    bookingKey={slugOf(picked)}
+                    defaultSeconds={defaultRingSeconds}
+                    onDone={load}
+                    onError={setError}
+                  />
+                </AdminDetailCard>
+                {(picked.vendor_offers || []).length > 0 && (
+                  <AdminDetailCard kicker={t('tabs.caterers')}>
+                    {picked.vendor_offers?.map((offer) => (
+                      <div className="worker-row" key={offer.id}>
+                        <div>
+                          <strong>{offer.company || t('nav.caterer')}</strong>
+                          <div className="meta"><StatusBadge value={offer.status} /><span>{offer.phone}</span></div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="card"><p>Select a task from the table.</p></div>
-          )}
-        </div>
-      </div>
-    </div>
+                    ))}
+                  </AdminDetailCard>
+                )}
+              </>
+            ) : (
+              <AdminDetailCard empty={t('common.selectRow')} />
+            )}
+          </AdminDetailStack>
+        )}
+      />
+    </AdminPage>
   )
 }

@@ -6,7 +6,7 @@ import { useLivePoll } from '../../hooks/useLivePoll'
 import { useAuth } from '../../auth/AuthContext'
 import { useI18n } from '../../i18n/LocaleContext'
 import { catererJobPath } from '../../lib/paths'
-import { LiveMark, Loader, PageHeader, StatusBadge, rupee, when } from '../../ui'
+import { AvailabilityToggle, LiveMark, Loader, PageHeader, StatusBadge, rupee, when } from '../../ui'
 
 export function CatererHome() {
   const { t } = useI18n()
@@ -28,12 +28,13 @@ export function CatererHome() {
         title={t('caterer.today')}
         subtitle={t('caterer.todaySub')}
         actions={
-          <button onClick={async () => {
-            await api('/caterer/availability', { method: 'POST', body: JSON.stringify({ is_available: !profile?.is_available }) })
-            await refresh()
-          }}>
-            {profile?.is_available ? t('caterer.goOffline') : t('caterer.goAvailable')}
-          </button>
+          <AvailabilityToggle
+            available={!!profile?.is_available}
+            onToggle={async (next) => {
+              await api('/caterer/availability', { method: 'POST', body: JSON.stringify({ is_available: next }) })
+              await refresh()
+            }}
+          />
         }
       />
       <IncomingVendorRing offers={offers} onChange={load} />

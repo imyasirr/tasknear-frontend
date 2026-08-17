@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, type Column } from '../../ui'
+import { AdminAlert, AdminDetailCard, AdminPage, AdminTab, AdminTableCard, AdminTabs, AdminWorkspace } from './admin-ui'
 
 type Doc = { id: number; type: string; status: string }
 type Profile = {
@@ -60,66 +61,83 @@ export function AdminKycPage() {
 
   if (!ready) return <Loader />
 
+  const tabs = [
+    ['pending_kyc', t('tabs.pending')],
+    ['active', t('tabs.active')],
+    ['suspended', t('tabs.suspended')],
+    ['all', t('tabs.all')],
+  ] as const
+
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('kyc.title')} subtitle={t('kyc.subtitle')} />
-      <div className="tabs">
-        {[['pending_kyc', t('tabs.pending')], ['active', t('tabs.active')], ['suspended', t('tabs.suspended')], ['all', t('tabs.all')]].map(([id, label]) => (
-          <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+      <AdminTabs>
+        {tabs.map(([id, label]) => (
+          <AdminTab key={id} active={tab === id} onClick={() => setTab(id)}>{label}</AdminTab>
         ))}
-      </div>
-      {error && <p className="err">{error}</p>}
-      <div className="split">
-        <div className="card flush">
-          <DataTable
-            rows={filtered}
-            columns={columns}
-            rowKey={(p) => p.id}
-            filename="tasknear-kyc"
-            searchPlaceholder={t('kyc.search')}
-            selectedKey={picked?.id}
-            onSelect={setPicked}
-            empty={t('kyc.empty')}
-          />
-        </div>
-        <div className="side-panel card">
-          <div className="card-kicker">{t('kyc.review')}</div>
-          {picked ? (
-            <>
-              <h2>{picked.user?.name}</h2>
-              <div className="kv">
-                <div className="kv-row"><span>Phone</span><strong>{picked.user?.phone}</strong></div>
-                <div className="kv-row"><span>City</span><strong>{picked.city || '—'}</strong></div>
-                <div className="kv-row"><span>PAN</span><strong>{picked.pan_number || '—'}</strong></div>
-                <div className="kv-row"><span>Aadhaar</span><strong>{picked.aadhaar_number || '—'}</strong></div>
-                <div className="kv-row"><span>UPI</span><strong>{picked.upi_vpa || '—'}</strong></div>
-                <div className="kv-row"><span>Bank</span><strong>{picked.bank_name || '—'}</strong></div>
-                <div className="kv-row"><span>Account</span><strong>{picked.bank_account_number || '—'}</strong></div>
-                <div className="kv-row"><span>IFSC</span><strong>{picked.bank_ifsc || '—'}</strong></div>
-                <div className="kv-row"><span>Holder</span><strong>{picked.bank_account_name || '—'}</strong></div>
-                <div className="kv-row"><span>Skills</span><strong>{skills(picked) || 'None'}</strong></div>
-                <div className="kv-row"><span>Status</span><StatusBadge value={picked.status} /></div>
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="card-kicker">Documents</div>
-                {(picked.documents || []).map((d) => (
-                  <div className="worker-row" key={d.id}>
-                    <strong>{d.type}</strong>
-                    <StatusBadge value={d.status} />
+      </AdminTabs>
+      <AdminAlert message={error} />
+      <AdminWorkspace
+        table={(
+          <AdminTableCard>
+            <DataTable
+              rows={filtered}
+              columns={columns}
+              rowKey={(p) => p.id}
+              filename="tasknear-kyc"
+              searchPlaceholder={t('kyc.search')}
+              selectedKey={picked?.id}
+              onSelect={setPicked}
+              empty={t('kyc.empty')}
+            />
+          </AdminTableCard>
+        )}
+        detail={(
+          <div className="side-panel">
+            <AdminDetailCard
+              kicker={t('kyc.review')}
+              title={picked?.user?.name}
+              empty={t('common.selectRow')}
+              actions={picked ? (
+                <>
+                  {picked.status !== 'active' && <button className="accent" disabled={busy} onClick={() => act(() => api(`/admin/kyc/profiles/${picked.id}/approve`, { method: 'POST' }))}>{t('kyc.approve')}</button>}
+                  {picked.status === 'pending_kyc' && <button className="ghost" disabled={busy} onClick={() => act(() => api(`/admin/kyc/profiles/${picked.id}/reject`, { method: 'POST', body: JSON.stringify({ review_note: 'Need clearer document' }) }))}>{t('kyc.reject')}</button>}
+                  {picked.status === 'active' && <button className="danger" disabled={busy} onClick={() => act(() => api(`/admin/workers/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'suspended' }) }))}>{t('kyc.suspend')}</button>}
+                  {picked.status === 'suspended' && <button className="accent" disabled={busy} onClick={() => act(() => api(`/admin/workers/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'active' }) }))}>{t('kyc.reactivate')}</button>}
+                </>
+              ) : undefined}
+            >
+              {picked ? (
+                <>
+                  <div className="kv">
+                    <div className="kv-row"><span>{t('cols.phone')}</span><strong>{picked.user?.phone}</strong></div>
+                    <div className="kv-row"><span>{t('cols.city')}</span><strong>{picked.city || '—'}</strong></div>
+                    <div className="kv-row"><span>PAN</span><strong>{picked.pan_number || '—'}</strong></div>
+                    <div className="kv-row"><span>Aadhaar</span><strong>{picked.aadhaar_number || '—'}</strong></div>
+                    <div className="kv-row"><span>UPI</span><strong>{picked.upi_vpa || '—'}</strong></div>
+                    <div className="kv-row"><span>Bank</span><strong>{picked.bank_name || '—'}</strong></div>
+                    <div className="kv-row"><span>Account</span><strong>{picked.bank_account_number || '—'}</strong></div>
+                    <div className="kv-row"><span>IFSC</span><strong>{picked.bank_ifsc || '—'}</strong></div>
+                    <div className="kv-row"><span>Holder</span><strong>{picked.bank_account_name || '—'}</strong></div>
+                    <div className="kv-row"><span>{t('cols.skills')}</span><strong>{skills(picked) || '—'}</strong></div>
+                    <div className="kv-row"><span>{t('cols.status')}</span><StatusBadge value={picked.status} /></div>
                   </div>
-                ))}
-                {(picked.documents || []).length === 0 && <p>No documents uploaded.</p>}
-              </div>
-              <div className="btn-row" style={{ marginTop: 16 }}>
-                {picked.status !== 'active' && <button disabled={busy} onClick={() => act(() => api(`/admin/kyc/profiles/${picked.id}/approve`, { method: 'POST' }))}>{t('kyc.approve')}</button>}
-                {picked.status === 'pending_kyc' && <button className="ghost" disabled={busy} onClick={() => act(() => api(`/admin/kyc/profiles/${picked.id}/reject`, { method: 'POST', body: JSON.stringify({ review_note: 'Need clearer document' }) }))}>{t('kyc.reject')}</button>}
-                {picked.status === 'active' && <button className="danger" disabled={busy} onClick={() => act(() => api(`/admin/workers/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'suspended' }) }))}>{t('kyc.suspend')}</button>}
-                {picked.status === 'suspended' && <button disabled={busy} onClick={() => act(() => api(`/admin/workers/${picked.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'active' }) }))}>{t('kyc.reactivate')}</button>}
-              </div>
-            </>
-          ) : <p>Select a worker.</p>}
-        </div>
-      </div>
-    </div>
+                  <div className="admin-section">
+                    <div className="card-kicker">Documents</div>
+                    {(picked.documents || []).map((d) => (
+                      <div className="worker-row" key={d.id}>
+                        <strong>{d.type}</strong>
+                        <StatusBadge value={d.status} />
+                      </div>
+                    ))}
+                    {(picked.documents || []).length === 0 && <p className="admin-form-hint">No documents uploaded.</p>}
+                  </div>
+                </>
+              ) : null}
+            </AdminDetailCard>
+          </div>
+        )}
+      />
+    </AdminPage>
   )
 }

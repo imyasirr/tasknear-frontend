@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { useI18n } from '../../i18n/LocaleContext'
 import { DataTable, Loader, PageHeader, StatusBadge, rupee, type Column } from '../../ui'
+import { AdminAlert, AdminDetailCard, AdminPage, AdminStat, AdminStats, AdminTab, AdminTableCard, AdminTabs, AdminWorkspace } from './admin-ui'
 
 type Payout = {
   id: number
@@ -60,70 +61,91 @@ export function AdminPayoutsPage() {
     { key: 'status', header: t('cols.status'), sortValue: (p) => p.status, csv: (p) => p.status, render: (p) => <StatusBadge value={p.status} /> },
   ]
 
+  const tabs = [
+    ['all', t('tabs.all')],
+    ['scheduled', t('tabs.scheduled')],
+    ['sent', t('tabs.sent')],
+    ['confirmed', t('tabs.confirmed')],
+  ] as const
+
   if (!ready) return <Loader />
 
   return (
-    <div className="page">
+    <AdminPage>
       <PageHeader title={t('payouts.title')} subtitle={t('payouts.subtitle')} />
-      <div className="grid three" style={{ marginBottom: 16 }}>
-        <div className="card"><div className="card-kicker">{t('payouts.scheduled')}</div><div className="stat">{rupee(scheduled)}</div></div>
-        <div className="card"><div className="card-kicker">{t('payouts.awaiting')}</div><div className="stat">{rupee(sent)}</div></div>
-        <div className="card"><div className="card-kicker">{t('payouts.confirmed')}</div><div className="stat">{rupee(confirmed)}</div></div>
-      </div>
-      <div className="tabs">
-        {[['all', t('tabs.all')], ['scheduled', t('tabs.scheduled')], ['sent', t('tabs.sent')], ['confirmed', t('tabs.confirmed')]].map(([id, label]) => (
-          <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+      <AdminStats>
+        <AdminStat label={t('payouts.scheduled')} value={rupee(scheduled)} />
+        <AdminStat label={t('payouts.awaiting')} value={rupee(sent)} />
+        <AdminStat label={t('payouts.confirmed')} value={rupee(confirmed)} />
+      </AdminStats>
+      <AdminTabs>
+        {tabs.map(([id, label]) => (
+          <AdminTab key={id} active={tab === id} onClick={() => setTab(id)}>{label}</AdminTab>
         ))}
-      </div>
-      {error && <p className="err">{error}</p>}
-      <div className="split">
-        <div className="card flush">
-          <DataTable
-            rows={list}
-            columns={columns}
-            rowKey={(p) => p.id}
-            filename="tasknear-payouts"
-            searchPlaceholder={t('payouts.search')}
-            selectedKey={picked?.id}
-            onSelect={setPicked}
-            empty={t('payouts.empty')}
-          />
-        </div>
-        <div className="side-panel card">
-          <div className="card-kicker">{t('payouts.transfer')}</div>
-          {picked ? (
-            <>
-              <h2>{rupee(picked.amount_inr)}</h2>
-              <div className="kv">
-                <div className="kv-row"><span>{t('cols.caterer')}</span><strong>{company(picked)}</strong></div>
-                <div className="kv-row"><span>{t('cols.phone')}</span><strong>{picked.worker?.phone || '—'}</strong></div>
-                <div className="kv-row"><span>{t('cols.client')}</span><strong>{client(picked)}</strong></div>
-                <div className="kv-row"><span>{t('cols.task')}</span><strong>{job(picked)}</strong></div>
-                <div className="kv-row"><span>UPI</span><strong>{picked.upi_vpa || 'No VPA'}</strong></div>
-                <div className="kv-row"><span>{t('cols.status')}</span><StatusBadge value={picked.status} /></div>
-              </div>
-              <div className="btn-row" style={{ marginTop: 16 }}>
-                {picked.status === 'scheduled' && (
-                  <button disabled={busy} onClick={async () => {
-                    setBusy(true)
-                    try { await api(`/admin/payouts/${picked.id}/send`, { method: 'POST' }); await load() }
-                    catch (e) { setError(e instanceof Error ? e.message : 'Update failed') }
-                    finally { setBusy(false) }
-                  }}>{t('payouts.markSent')}</button>
-                )}
-                {(picked.status === 'sent' || picked.status === 'pending') && (
-                  <button disabled={busy} onClick={async () => {
-                    setBusy(true)
-                    try { await api(`/admin/payouts/${picked.id}/release`, { method: 'POST' }); await load() }
-                    catch (e) { setError(e instanceof Error ? e.message : 'Update failed') }
-                    finally { setBusy(false) }
-                  }}>{t('payouts.markGot')}</button>
-                )}
-              </div>
-            </>
-          ) : <p>{t('payouts.empty')}</p>}
-        </div>
-      </div>
-    </div>
+      </AdminTabs>
+      <AdminAlert message={error} />
+      <AdminWorkspace
+        table={(
+          <AdminTableCard>
+            <DataTable
+              rows={list}
+              columns={columns}
+              rowKey={(p) => p.id}
+              filename="tasknear-payouts"
+              searchPlaceholder={t('payouts.search')}
+              selectedKey={picked?.id}
+              onSelect={setPicked}
+              empty={t('payouts.empty')}
+            />
+          </AdminTableCard>
+        )}
+        detail={(
+          <div className="side-panel">
+            <AdminDetailCard
+              kicker={t('payouts.transfer')}
+              title={picked ? rupee(picked.amount_inr) : undefined}
+              empty={t('common.selectRow')}
+              actions={picked ? (
+                <>
+                  {picked.status === 'scheduled' && (
+                    <button className="accent" disabled={busy} onClick={async () => {
+                      setBusy(true)
+                      try { await api(`/admin/payouts/${picked.id}/send`, { method: 'POST' }); await load() }
+                      catch (e) { setError(e instanceof Error ? e.message : 'Update failed') }
+                      finally { setBusy(false) }
+                    }}
+                    >
+                      {t('payouts.markSent')}
+                    </button>
+                  )}
+                  {(picked.status === 'sent' || picked.status === 'pending') && (
+                    <button className="accent" disabled={busy} onClick={async () => {
+                      setBusy(true)
+                      try { await api(`/admin/payouts/${picked.id}/release`, { method: 'POST' }); await load() }
+                      catch (e) { setError(e instanceof Error ? e.message : 'Update failed') }
+                      finally { setBusy(false) }
+                    }}
+                    >
+                      {t('payouts.markGot')}
+                    </button>
+                  )}
+                </>
+              ) : undefined}
+            >
+              {picked ? (
+                <div className="kv">
+                  <div className="kv-row"><span>{t('cols.caterer')}</span><strong>{company(picked)}</strong></div>
+                  <div className="kv-row"><span>{t('cols.phone')}</span><strong>{picked.worker?.phone || '—'}</strong></div>
+                  <div className="kv-row"><span>{t('cols.client')}</span><strong>{client(picked)}</strong></div>
+                  <div className="kv-row"><span>{t('cols.task')}</span><strong>{job(picked)}</strong></div>
+                  <div className="kv-row"><span>UPI</span><strong>{picked.upi_vpa || 'No VPA'}</strong></div>
+                  <div className="kv-row"><span>{t('cols.status')}</span><StatusBadge value={picked.status} /></div>
+                </div>
+              ) : null}
+            </AdminDetailCard>
+          </div>
+        )}
+      />
+    </AdminPage>
   )
 }
