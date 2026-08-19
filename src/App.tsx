@@ -2,6 +2,12 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import { AppShell } from './layouts/AppShell'
 import { AuthShell } from './layouts/AuthShell'
+import { PublicShell } from './layouts/PublicShell'
+import { HomePage } from './pages/public/HomePage'
+import { AboutPage } from './pages/public/AboutPage'
+import { PrivacyPage } from './pages/public/PrivacyPage'
+import { TermsPage } from './pages/public/TermsPage'
+import { ContactPage } from './pages/public/ContactPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { homeFor } from './auth/home'
@@ -23,6 +29,7 @@ import { CatererEarningsPage } from './pages/caterer/CatererEarningsPage'
 import { WorkerHome } from './pages/worker/WorkerHome'
 import { WorkerJobPage } from './pages/worker/WorkerJobPage'
 import { WorkerProfilePage } from './pages/worker/WorkerProfilePage'
+import { WorkerEarningsPage } from './pages/worker/WorkerEarningsPage'
 import { AdminPayoutsPage } from './pages/admin/AdminPayoutsPage'
 import { AdminCitiesPage } from './pages/admin/AdminCitiesPage'
 import { PlansPage } from './pages/client/PlansPage'
@@ -39,7 +46,7 @@ function HomeRedirect() {
   const { user, loading } = useAuth()
   const { t } = useI18n()
   if (loading) return <Loader label={t('common.loading')} />
-  return <Navigate to={user ? homeFor(user.roles) : '/login'} replace />
+  return <Navigate to={user ? homeFor(user.roles) : '/'} replace />
 }
 
 function Guard({ role, roles }: { role?: string; roles?: string[] }) {
@@ -57,6 +64,13 @@ function Guard({ role, roles }: { role?: string; roles?: string[] }) {
 export default function App() {
   return (
     <Routes>
+      <Route element={<PublicShell />}>
+        <Route index element={<HomePage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="contact" element={<ContactPage />} />
+      </Route>
       <Route element={<AuthShell />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -96,6 +110,7 @@ export default function App() {
           >
             <Route index element={<WorkerHome />} />
             <Route path="jobs/:id" element={<WorkerJobPage />} />
+            <Route path="earnings" element={<WorkerEarningsPage />} />
             <Route path="profile" element={<WorkerProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

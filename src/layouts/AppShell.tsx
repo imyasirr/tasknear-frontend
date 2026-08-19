@@ -24,6 +24,7 @@ const PORTAL_LINKS: Record<Exclude<Portal, 'admin'>, LinkRow[]> = {
   ],
   worker: [
     { to: '/worker', key: 'nav.jobs' },
+    { to: '/worker/earnings', key: 'nav.earnings' },
     { to: '/worker/profile', key: 'nav.kyc' },
     { to: '/worker/settings', key: 'nav.settings' },
   ],

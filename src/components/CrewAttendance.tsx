@@ -5,7 +5,7 @@ import { StatusBadge } from '../ui'
 export type CrewRow = {
   id: number
   status: string
-  worker?: { name?: string; phone?: string } | null
+  worker?: { id?: number; name?: string; phone?: string } | null
   attendance?: ClientOtpAttendance | null
 }
 

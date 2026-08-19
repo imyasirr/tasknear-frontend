@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
+import { PayButton } from '../../payments'
 import { useAuth } from '../../auth/AuthContext'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
@@ -31,7 +32,6 @@ export function PlansPage() {
   const [active, setActive] = useState<Sub | null>(null)
   const [history, setHistory] = useState<Sub[]>([])
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState<number | null>(null)
 
   async function load() {
     const [list, mine] = await Promise.all([
@@ -77,25 +77,17 @@ export function PlansPage() {
                   </li>
                 ))}
               </ul>
-              <button
+              <PayButton
                 className="accent"
-                disabled={busy === plan.id}
-                onClick={async () => {
-                  setBusy(plan.id)
+                label={on ? t('plans.renew') : t('plans.buy')}
+                target={{ kind: 'subscription', planId: plan.id, amountInr: plan.price_inr, description: pname(plan) }}
+                onSuccess={async () => {
                   setError('')
-                  try {
-                    await api(`/subscription-plans/${plan.id}/buy`, { method: 'POST' })
-                    await load()
-                    await refresh()
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : t('plans.buyFail'))
-                  } finally {
-                    setBusy(null)
-                  }
+                  await load()
+                  await refresh()
                 }}
-              >
-                {on ? t('plans.renew') : t('plans.buy')}
-              </button>
+                onError={(msg) => setError(msg)}
+              />
             </div>
           )
         })}

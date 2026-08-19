@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../../api/client'
+import { PayButton } from '../../payments'
 import { JobFacts } from '../../components/JobFacts'
 import { ClientRepostCard } from '../../components/ClientRepostCard'
 import { JobLayout, PayCard, RolePackage } from '../../components/JobLayout'
 import { useLivePoll } from '../../hooks/useLivePoll'
 import { useI18n } from '../../i18n/LocaleContext'
 import { CrewAttendance, type CrewRow } from '../../components/CrewAttendance'
+import { RatingPanel, type MyRating } from '../../components/RatingPanel'
+import { buildRateTargets } from '../../lib/ratingTargets'
 import { VenueOtpCard, type VenueAttendance } from '../../components/VenueOtpCard'
 import { VendorStatus, type VendorCompany, type VendorRing } from '../../components/VendorStatus'
 import { WorkerStatus, type WorkerRing } from '../../components/WorkerStatus'
@@ -43,6 +46,7 @@ type EventDetail = {
   worker_ring?: WorkerRing
   vendor_attendance?: VenueAttendance | null
   client_crew?: CrewRow[]
+  my_ratings?: MyRating[]
 }
 
 export function EventDetailPage() {
@@ -69,6 +73,12 @@ export function EventDetailPage() {
   const ringing = event.status === 'matching' || event.status === 'filling'
   const live = ['matching', 'filling', 'confirmed', 'in_progress'].includes(event.status)
   const showOtp = ['confirmed', 'in_progress', 'completed'].includes(event.status)
+  const showRating = ['completed', 'settled'].includes(event.status)
+  const rateTargets = buildRateTargets(event, {
+    caterer: t('nav.caterer'),
+    worker: t('nav.worker'),
+    nearbyWorker: t('client.nearbyWorker'),
+  })
 
   return (
     <JobLayout
@@ -85,14 +95,11 @@ export function EventDetailPage() {
             <div className="alert warn">
               <strong>{t('client.payToRing', { amount: rupee(payment.amount_inr) })}</strong>
               <div className="btn-row" style={{ marginTop: 10 }}>
-                <button className="accent" onClick={async () => {
-                  try {
-                    await api(`/payments/${payment.id}/dev-pay`, { method: 'POST' })
-                    await load()
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : 'Payment failed')
-                  }
-                }}>Mark deposit paid</button>
+                <PayButton
+                  target={{ kind: 'booking', paymentId: payment.id, amountInr: payment.amount_inr }}
+                  onSuccess={load}
+                  onError={(msg) => setError(msg)}
+                />
               </div>
             </div>
           )}
@@ -104,6 +111,14 @@ export function EventDetailPage() {
           )}
           {event.status === 'in_progress' && <div className="alert ok">{t('client.workerOnSite')}</div>}
           {event.status === 'completed' && <div className="alert ok">{t('client.allDone', { n: 1 })}</div>}
+          {showRating && rateTargets.length > 0 && (
+            <RatingPanel
+              serviceRequestId={event.id}
+              targets={rateTargets}
+              existing={event.my_ratings}
+              onRated={load}
+            />
+          )}
           {event.status === 'unmatched' && payment?.status === 'paid' && slug && (
             <ClientRepostCard
               kind="events"

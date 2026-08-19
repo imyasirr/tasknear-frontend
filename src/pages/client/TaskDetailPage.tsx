@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../../api/client'
+import { PayButton } from '../../payments'
 import { JobFacts } from '../../components/JobFacts'
 import { ClientRepostCard } from '../../components/ClientRepostCard'
 import { JobLayout, PayCard, RolePackage } from '../../components/JobLayout'
@@ -9,6 +10,8 @@ import { useI18n } from '../../i18n/LocaleContext'
 import { categoryLabel } from '../../lib/categories'
 import { WORKER_ROLES } from '../../lib/providerTypes'
 import { CrewAttendance, type CrewRow } from '../../components/CrewAttendance'
+import { RatingPanel, type MyRating } from '../../components/RatingPanel'
+import { buildRateTargets } from '../../lib/ratingTargets'
 import { VenueOtpCard, type VenueAttendance } from '../../components/VenueOtpCard'
 import { VendorStatus, type VendorCompany, type VendorRing } from '../../components/VendorStatus'
 import { WorkerStatus, type WorkerRing } from '../../components/WorkerStatus'
@@ -40,6 +43,7 @@ type Task = {
   worker_ring?: WorkerRing
   vendor_attendance?: VenueAttendance | null
   client_crew?: CrewRow[]
+  my_ratings?: MyRating[]
 }
 
 export function TaskDetailPage() {
@@ -66,6 +70,12 @@ export function TaskDetailPage() {
   const ringing = task.status === 'matching' || task.status === 'filling'
   const live = ['matching', 'filling', 'confirmed', 'in_progress'].includes(task.status)
   const showOtp = ['confirmed', 'in_progress', 'completed'].includes(task.status)
+  const showRating = ['completed', 'settled'].includes(task.status)
+  const rateTargets = buildRateTargets(task, {
+    caterer: t('nav.caterer'),
+    worker: t('nav.worker'),
+    nearbyWorker: t('client.nearbyWorker'),
+  })
 
   return (
     <JobLayout
@@ -82,7 +92,11 @@ export function TaskDetailPage() {
             <div className="alert warn">
               {t('client.payToRing', { amount: rupee(payment.amount_inr) })}
               <div className="btn-row" style={{ marginTop: 10 }}>
-                <button className="accent" onClick={async () => { await api(`/payments/${payment.id}/dev-pay`, { method: 'POST' }); await load() }}>Mark paid</button>
+                <PayButton
+                  target={{ kind: 'booking', paymentId: payment.id, amountInr: payment.amount_inr }}
+                  onSuccess={load}
+                  onError={(msg) => setError(msg)}
+                />
               </div>
             </div>
           )}
@@ -94,6 +108,14 @@ export function TaskDetailPage() {
           )}
           {task.status === 'in_progress' && <div className="alert ok">{t('client.workerOnSite')}</div>}
           {task.status === 'completed' && <div className="alert ok">{t('client.allDone', { n: task.required_workers || 1 })}</div>}
+          {showRating && rateTargets.length > 0 && (
+            <RatingPanel
+              serviceRequestId={task.id}
+              targets={rateTargets}
+              existing={task.my_ratings}
+              onRated={load}
+            />
+          )}
           {task.status === 'unmatched' && payment?.status === 'paid' && slug && (
             <ClientRepostCard
               kind="tasks"
