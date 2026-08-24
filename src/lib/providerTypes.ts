@@ -27,9 +27,11 @@ export function isWorkerProvider(row?: ProviderTypeRow | null): boolean {
 
 export const VENDOR_ROLES = ['caterer', 'agency'] as const
 export const WORKER_ROLES = ['worker', 'driver', 'home_pro'] as const
+export const VENUE_ROLES = ['venue_partner'] as const
 
-export function portalForRoles(roles: string[] | undefined): 'admin' | 'vendor' | 'worker' | 'client' {
+export function portalForRoles(roles: string[] | undefined): 'admin' | 'vendor' | 'worker' | 'venue' | 'client' {
   if (roles?.includes('admin')) return 'admin'
+  if (roles?.some((r) => (VENUE_ROLES as readonly string[]).includes(r))) return 'venue'
   if (roles?.some((r) => (VENDOR_ROLES as readonly string[]).includes(r))) return 'vendor'
   if (roles?.some((r) => (WORKER_ROLES as readonly string[]).includes(r))) return 'worker'
   return 'client'
@@ -38,6 +40,7 @@ export function portalForRoles(roles: string[] | undefined): 'admin' | 'vendor' 
 export function homeForRoles(roles: string[] | undefined): string {
   const portal = portalForRoles(roles)
   if (portal === 'admin') return '/admin'
+  if (portal === 'venue') return '/venue'
   if (portal === 'vendor') return '/caterer'
   if (portal === 'worker') return '/worker'
   return '/app'

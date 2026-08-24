@@ -32,13 +32,21 @@ import { WorkerProfilePage } from './pages/worker/WorkerProfilePage'
 import { WorkerEarningsPage } from './pages/worker/WorkerEarningsPage'
 import { AdminPayoutsPage } from './pages/admin/AdminPayoutsPage'
 import { AdminCitiesPage } from './pages/admin/AdminCitiesPage'
-import { PlansPage } from './pages/client/PlansPage'
+import { ClientVenueBookingPage } from './pages/client/ClientVenueBookingPage'
+import { VenuesBrowsePage } from './pages/client/VenuesBrowsePage'
+import { VenueDetailPage } from './pages/client/VenueDetailPage'
 import { AdminBillingPage } from './pages/admin/AdminBillingPage'
 import { AdminMatchingPage } from './pages/admin/AdminMatchingPage'
 import { AdminKycPage } from './pages/admin/AdminKycPage'
 import { AdminFillBoardPage } from './pages/admin/AdminFillBoardPage'
 import { AdminTaskBoardPage } from './pages/admin/AdminTaskBoardPage'
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage'
+import { PlansPage } from './pages/client/PlansPage'
+import { VenueBookingDetailPage } from './pages/venue/VenueBookingDetailPage'
+import { VenueEditPage } from './pages/venue/VenueEditPage'
+import { VenueListingsPage } from './pages/venue/VenueListingsPage'
+import { VenuePartnerHome } from './pages/venue/VenuePartnerHome'
+import { VenuePartnerProfilePage } from './pages/venue/VenuePartnerProfilePage'
 import { useI18n } from './i18n/LocaleContext'
 import { Loader } from './ui'
 
@@ -88,6 +96,9 @@ export default function App() {
             <Route path="tasks/new" element={<Navigate to="/app/post" replace />} />
             <Route path="tasks/:slug" element={<TaskDetailPage />} />
             <Route path="plans" element={<PlansPage />} />
+            <Route path="venues" element={<VenuesBrowsePage />} />
+            <Route path="venues/:slug" element={<VenueDetailPage />} />
+            <Route path="venue-bookings/:slug" element={<ClientVenueBookingPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
@@ -112,6 +123,16 @@ export default function App() {
             <Route path="jobs/:id" element={<WorkerJobPage />} />
             <Route path="earnings" element={<WorkerEarningsPage />} />
             <Route path="profile" element={<WorkerProfilePage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+        </Route>
+        <Route element={<Guard roles={['venue_partner']} />}>
+          <Route path="/venue" element={<AppShell portal="venue" />}>
+            <Route index element={<VenuePartnerHome />} />
+            <Route path="listings" element={<VenueListingsPage />} />
+            <Route path="listings/:id" element={<VenueEditPage />} />
+            <Route path="bookings/:slug" element={<VenueBookingDetailPage />} />
+            <Route path="profile" element={<VenuePartnerProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

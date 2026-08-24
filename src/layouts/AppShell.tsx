@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Avatar } from '../components/Avatar'
 import { useI18n } from '../i18n/LocaleContext'
 
-type Portal = 'client' | 'admin' | 'caterer' | 'worker'
+type Portal = 'client' | 'admin' | 'caterer' | 'worker' | 'venue'
 
 type LinkRow = { to: string; key: string }
 type NavSection = { labelKey: string; links: LinkRow[] }
@@ -12,6 +12,7 @@ type NavSection = { labelKey: string; links: LinkRow[] }
 const PORTAL_LINKS: Record<Exclude<Portal, 'admin'>, LinkRow[]> = {
   client: [
     { to: '/app', key: 'nav.bookings' },
+    { to: '/app/venues', key: 'nav.venues' },
     { to: '/app/post', key: 'nav.postJob' },
     { to: '/app/plans', key: 'nav.plans' },
     { to: '/app/settings', key: 'nav.settings' },
@@ -27,6 +28,12 @@ const PORTAL_LINKS: Record<Exclude<Portal, 'admin'>, LinkRow[]> = {
     { to: '/worker/earnings', key: 'nav.earnings' },
     { to: '/worker/profile', key: 'nav.kyc' },
     { to: '/worker/settings', key: 'nav.settings' },
+  ],
+  venue: [
+    { to: '/venue', key: 'nav.bookings' },
+    { to: '/venue/listings', key: 'nav.listings' },
+    { to: '/venue/profile', key: 'nav.company' },
+    { to: '/venue/settings', key: 'nav.settings' },
   ],
 }
 
@@ -147,7 +154,15 @@ export function AppShell({ portal }: { portal: Portal }) {
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const links = portal === 'admin' ? null : PORTAL_LINKS[portal]
-  const tag = portal === 'client' ? t('nav.client') : portal === 'caterer' ? t('nav.caterer') : t('nav.ops')
+  const tag = portal === 'client'
+    ? t('nav.client')
+    : portal === 'caterer'
+      ? t('nav.caterer')
+      : portal === 'venue'
+        ? t('nav.venuePartner')
+        : portal === 'worker'
+          ? t('nav.worker')
+          : t('nav.ops')
   const closeDrawer = () => setDrawerOpen(false)
 
   useEffect(() => {

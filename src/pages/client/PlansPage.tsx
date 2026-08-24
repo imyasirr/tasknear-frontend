@@ -31,15 +31,17 @@ export function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [active, setActive] = useState<Sub | null>(null)
   const [history, setHistory] = useState<Sub[]>([])
+  const [canPurchase, setCanPurchase] = useState(true)
   const [error, setError] = useState('')
 
   async function load() {
     const [list, mine] = await Promise.all([
       api<Plan[]>('/subscription-plans'),
-      api<{ active: Sub | null; history: Sub[] }>('/me/subscription'),
+      api<{ active: Sub | null; can_purchase: boolean; history: Sub[] }>('/me/subscription'),
     ])
     setPlans(list)
     setActive(mine.active)
+    setCanPurchase(mine.can_purchase ?? !mine.active)
     setHistory(mine.history || [])
   }
   const ready = useLivePoll(load, 8000)
@@ -47,16 +49,33 @@ export function PlansPage() {
 
   const fname = (f: Feature) => (locale === 'hi' && f.name_hi ? f.name_hi : f.name)
   const pname = (p?: Plan) => (locale === 'hi' && p?.name_hi ? p.name_hi : p?.name) || '—'
+  const hasActive = !canPurchase && !!active
 
   return (
     <div className="page">
       <PageHeader title={t('plans.title')} subtitle={t('plans.subtitle')} />
-      {active && (
-        <div className="alert ok">
-          {t('plans.activeNow', { plan: pname(active.plan), until: when(active.ends_at) })}
+      {error && <p className="err">{error}</p>}
+
+      {hasActive && active && (
+        <div className="card plan-current" style={{ marginBottom: 22 }}>
+          <div className="btn-row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div className="card-kicker">{t('plans.currentPlan')}</div>
+              <div className="stat" style={{ fontSize: '1.5rem' }}>{pname(active.plan)}</div>
+            </div>
+            <StatusBadge value="active" />
+          </div>
+          <div className="kv" style={{ marginTop: 12 }}>
+            <div className="kv-row"><span>{t('plans.purchasedOn')}</span><strong>{when(active.starts_at)}</strong></div>
+            <div className="kv-row"><span>{t('plans.validUntil')}</span><strong>{when(active.ends_at)}</strong></div>
+            <div className="kv-row"><span>{t('plans.amountPaid')}</span><strong>{rupee(active.amount_inr)}</strong></div>
+          </div>
+          <p className="meta" style={{ marginTop: 12, marginBottom: 0 }}>
+            {t('plans.activeUntilNote', { until: when(active.ends_at) })}
+          </p>
         </div>
       )}
-      {error && <p className="err">{error}</p>}
+
       <div className="grid three" style={{ marginBottom: 22 }}>
         {plans.map((plan) => {
           const on = active?.plan?.id === plan.id && active.status === 'active'
@@ -77,35 +96,54 @@ export function PlansPage() {
                   </li>
                 ))}
               </ul>
-              <PayButton
-                className="accent"
-                label={on ? t('plans.renew') : t('plans.buy')}
-                target={{ kind: 'subscription', planId: plan.id, amountInr: plan.price_inr, description: pname(plan) }}
-                onSuccess={async () => {
-                  setError('')
-                  await load()
-                  await refresh()
-                }}
-                onError={(msg) => setError(msg)}
-              />
+              {hasActive ? (
+                on ? (
+                  <button type="button" className="accent" disabled>
+                    {t('plans.alreadyPurchased')}
+                  </button>
+                ) : (
+                  <button type="button" disabled title={t('plans.buyAfterExpiry')}>
+                    {t('plans.buyAfterExpiry')}
+                  </button>
+                )
+              ) : (
+                <PayButton
+                  className="accent"
+                  label={t('plans.buy')}
+                  target={{ kind: 'subscription', planId: plan.id, amountInr: plan.price_inr, description: pname(plan) }}
+                  onSuccess={async () => {
+                    setError('')
+                    await load()
+                    await refresh()
+                  }}
+                  onError={(msg) => setError(msg)}
+                />
+              )}
             </div>
           )
         })}
       </div>
-      {history.length > 0 && (
-        <div className="card">
-          <div className="card-kicker">{t('plans.history')}</div>
-          {history.map((s) => (
-            <div className="worker-row" key={s.id}>
+
+      <div className="card">
+        <div className="card-kicker">{t('plans.history')}</div>
+        {history.length === 0 ? (
+          <p className="empty">{t('plans.historyEmpty')}</p>
+        ) : (
+          history.map((s) => (
+            <div className="worker-row plan-history-row" key={s.id}>
               <div>
                 <strong>{pname(s.plan)}</strong>
-                <div className="meta"><span>{when(s.starts_at)} → {when(s.ends_at)}</span></div>
+                <div className="meta">
+                  <span>
+                    {t('plans.purchasedOn')}: {when(s.starts_at)} · {t('plans.validUntil')}: {when(s.ends_at)} · {rupee(s.amount_inr)}
+                  </span>
+                </div>
               </div>
               <StatusBadge value={s.status} />
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   )
 }

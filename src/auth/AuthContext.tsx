@@ -23,7 +23,7 @@ type AuthState = {
   register: (input: {
     phone: string
     name: string
-    role: 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro'
+    role: 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro' | 'venue_partner'
     city?: string
     password: string
     company_name?: string

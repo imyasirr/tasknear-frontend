@@ -25,7 +25,7 @@ export function RegisterPage() {
   const [busy, setBusy] = useState(false)
 
   const selectedProvider = providers.find((p) => p.slug === role)
-  const isVendor = selectedProvider?.match_mode === 'vendor'
+  const isVendor = selectedProvider?.match_mode === 'vendor' || role === 'venue_partner'
 
   useEffect(() => {
     Promise.all([
@@ -48,7 +48,7 @@ export function RegisterPage() {
       const signed = await register({
         phone,
         name,
-        role: role as 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro',
+        role: role as 'customer' | 'caterer' | 'worker' | 'agency' | 'driver' | 'home_pro' | 'venue_partner',
         city,
         password,
         company_name: isVendor ? (company || name) : undefined,

@@ -22,6 +22,18 @@ type Row = {
   vendor_ring?: { ringing?: boolean } | null
 }
 
+type VenueBooking = {
+  slug: string
+  status: string
+  guest_count: number
+  total_inr: number
+  advance_inr: number
+  starts_at?: string
+  ends_at?: string
+  venue?: { name?: string; city?: string }
+  slot?: { starts_at?: string; ends_at?: string }
+}
+
 function providerName(providers: ProviderTypeRow[], slug: string | undefined, locale: string): string | null {
   if (!slug) return null
   const row = providers.find((p) => p.slug === slug)
@@ -32,18 +44,21 @@ export function ClientHome() {
   const { t, locale } = useI18n()
   const [events, setEvents] = useState<Row[]>([])
   const [tasks, setTasks] = useState<Row[]>([])
+  const [venues, setVenues] = useState<VenueBooking[]>([])
   const [providers, setProviders] = useState<ProviderTypeRow[]>([])
   const [error, setError] = useState('')
 
   const ready = useLivePoll(async () => {
     try {
-      const [e, taskRows, providerRows] = await Promise.all([
+      const [e, taskRows, venueRows, providerRows] = await Promise.all([
         api<Row[]>('/events'),
         api<Row[]>('/tasks'),
+        api<VenueBooking[]>('/venue-bookings/mine'),
         api<ProviderTypeRow[]>('/provider-types'),
       ])
       setEvents(e)
       setTasks(taskRows)
+      setVenues(venueRows)
       setProviders(providerRows)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
@@ -58,10 +73,36 @@ export function ClientHome() {
         title={t('client.bookings')}
         subtitle={t('client.bookingsSub')}
         actions={
-          <Link to="/app/post"><button className="accent">{t('client.postJob')}</button></Link>
+          <div className="btn-row">
+            <Link to="/app/venues"><button type="button">{t('nav.venues')}</button></Link>
+            <Link to="/app/post"><button className="accent">{t('client.postJob')}</button></Link>
+          </div>
         }
       />
       {error && <p className="err">{error}</p>}
+
+      <div className="card-kicker">{t('nav.venues')}</div>
+      <div className="grid two" style={{ marginBottom: 28 }}>
+        {venues.map((v) => (
+          <Link key={v.slug} to={`/app/venue-bookings/${v.slug}`} className="card">
+            <StatusBadge value={v.status} />
+            <h2 style={{ marginTop: 10 }}>{v.venue?.name || t('venue.booking')}</h2>
+            <div className="meta">
+              {v.venue?.city && <span>{v.venue.city}</span>}
+              <span>{when(v.starts_at || v.slot?.starts_at)} → {when(v.ends_at || v.slot?.ends_at)}</span>
+              <span>{v.guest_count} {t('venue.guests')}</span>
+              <span>{rupee(v.advance_inr || v.total_inr)}</span>
+            </div>
+          </Link>
+        ))}
+        {venues.length === 0 && (
+          <div className="card empty">
+            {t('venue.noClientBookings')}{' '}
+            <Link to="/app/venues">{t('venue.browseTitle')}</Link>
+          </div>
+        )}
+      </div>
+
       <div className="card-kicker">{t('client.events')}</div>
       <div className="grid two" style={{ marginBottom: 28 }}>
         {events.map((event) => (
